@@ -2,7 +2,14 @@
   "permissions": {
     "allow": [
       "Bash(ls:*)",
-      "Bash(find:*)"
+      "Bash(find:*)",
+      "Bash(npx @nestjs/cli new:*)",
+      "Bash(pnpm run build:*)",
+      "Bash(dir:*)",
+      "Bash(npx tsc:*)",
+      "Bash(pnpm add:*)",
+      "Bash(pnpm approve-builds:*)",
+      "Bash(pnpm run test)"
     ]
   }
 }

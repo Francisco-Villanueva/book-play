@@ -1,0 +1,26 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: bookandplay
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - '5432:5432'
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+  api:
+    build: .
+    ports:
+      - '3000:3000'
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/bookandplay
+      APP_PORT: 3000
+      JWT_SECRET: super-secret-jwt-key-change-me
+      JWT_EXPIRATION: 7d
+    depends_on:
+      - postgres
+
+volumes:
+  pgdata:
