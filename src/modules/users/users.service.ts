@@ -35,11 +35,11 @@ export class UsersService {
   }
 
   async findByEmail(email: string): Promise<User | null> {
-    return this.userModel.findOne({ where: { email } });
+    return await this.userModel.findOne({ where: { email } });
   }
 
   async findByUsernameOrEmail(username: string): Promise<User | null> {
-    return this.userModel.findOne({
+    return await this.userModel.findOne({
       where: {
         [Op.or]: [{ userName: username }, { email: username }],
       },
@@ -47,13 +47,13 @@ export class UsersService {
   }
 
   async findById(id: string): Promise<User | null> {
-    return this.userModel.findByPk(id);
+    return await this.userModel.findByPk(id);
   }
 
   async validatePassword(
     plainPassword: string,
     hashedPassword: string,
   ): Promise<boolean> {
-    return bcrypt.compare(plainPassword, hashedPassword);
+    return await bcrypt.compare(plainPassword, hashedPassword);
   }
 }
