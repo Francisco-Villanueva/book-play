@@ -1,6 +1,4 @@
 import {
-  BelongsTo,
-  BelongsToMany,
   Column,
   DataType,
   Default,
@@ -11,7 +9,6 @@ import {
 } from 'sequelize-typescript';
 import { Business } from '../../businesses/entities/business.model';
 import { Court } from '../../courts/entities/court.model';
-import { CourtException } from './court-exception.model';
 
 @Table({
   tableName: 'exception_rules',
@@ -26,27 +23,24 @@ export class ExceptionRule extends Model {
 
   @ForeignKey(() => Business)
   @Column({ type: DataType.UUID, allowNull: false, field: 'business_id' })
-  businessId: string;
+  declare businessId: string;
 
   @Column({ type: DataType.DATEONLY, allowNull: false })
-  date: string;
+  declare date: string;
 
   @Column({ type: DataType.TIME, field: 'start_time' })
-  startTime: string;
+  declare startTime: string;
 
   @Column({ type: DataType.TIME, field: 'end_time' })
-  endTime: string;
+  declare endTime: string;
 
   @Default(false)
   @Column({ type: DataType.BOOLEAN, allowNull: false, field: 'is_available' })
-  isAvailable: boolean;
+  declare isAvailable: boolean;
 
   @Column(DataType.STRING)
-  reason: string;
+  declare reason: string;
 
-  @BelongsTo(() => Business)
-  business: Business;
-
-  @BelongsToMany(() => Court, () => CourtException)
-  courts: Court[];
+  declare business: Business;
+  declare courts: Court[];
 }

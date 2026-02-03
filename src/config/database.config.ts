@@ -11,6 +11,13 @@ export const databaseConfig = (): SequelizeModuleOptions => ({
   },
   autoLoadModels: true,
   synchronize: true,
-  sync: { alter: true },
+  sync: { force: true },
   logging: false,
+  define: {
+    timestamps: true,
+    underscored: true, // Ya lo estás usando en tus modelos
+  },
+  query: {
+    raw: false, // Esto asegura que se usen los getters de Sequelize
+  },
 });

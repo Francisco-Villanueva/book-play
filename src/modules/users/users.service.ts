@@ -1,12 +1,14 @@
-import { ConflictException, Injectable } from '@nestjs/common';
-import { InjectModel } from '@nestjs/sequelize';
+import { ConflictException, Inject, Injectable } from '@nestjs/common';
 import { Op } from 'sequelize';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.model';
+import { USER_REPOSITORY } from '../database/constants/repositories.constants';
 
 @Injectable()
 export class UsersService {
-  constructor(@InjectModel(User) private readonly userModel: typeof User) {}
+  constructor(
+    @Inject(USER_REPOSITORY) private readonly userModel: typeof User,
+  ) {}
 
   async create(data: {
     name: string;
@@ -54,6 +56,7 @@ export class UsersService {
     plainPassword: string,
     hashedPassword: string,
   ): Promise<boolean> {
-    return await bcrypt.compare(plainPassword, hashedPassword);
+    const res = await bcrypt.compare(plainPassword, hashedPassword);
+    return res;
   }
 }

@@ -24,7 +24,7 @@ export class CourtException extends Model {
 
   @ForeignKey(() => Court)
   @Column({ type: DataType.UUID, allowNull: false, field: 'court_id' })
-  courtId: string;
+  declare courtId: string;
 
   @ForeignKey(() => ExceptionRule)
   @Column({
@@ -32,5 +32,5 @@ export class CourtException extends Model {
     allowNull: false,
     field: 'exception_rule_id',
   })
-  exceptionRuleId: string;
+  declare exceptionRuleId: string;
 }

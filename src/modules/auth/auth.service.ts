@@ -20,11 +20,11 @@ export class AuthService {
   async validateUser(username: string, password: string): Promise<User | null> {
     const user = await this.usersService.findByUsernameOrEmail(username);
     if (!user) return null;
-
     const valid = await this.usersService.validatePassword(
       password,
       user.password,
     );
+
     return valid ? user : null;
   }
 

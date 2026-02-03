@@ -1,5 +1,4 @@
 import {
-  BelongsTo,
   Column,
   DataType,
   Default,
@@ -35,56 +34,51 @@ export class Booking extends Model {
 
   @ForeignKey(() => Court)
   @Column({ type: DataType.UUID, allowNull: false, field: 'court_id' })
-  courtId: string;
+  declare courtId: string;
 
   @ForeignKey(() => Business)
   @Column({ type: DataType.UUID, allowNull: false, field: 'business_id' })
-  businessId: string;
+  declare businessId: string;
 
   @ForeignKey(() => User)
   @Column({ type: DataType.UUID, field: 'user_id' })
-  userId: string;
+  declare userId: string;
 
   @Column({ type: DataType.STRING, field: 'guest_name' })
-  guestName: string;
+  declare guestName: string;
 
   @Column({ type: DataType.STRING, field: 'guest_phone' })
-  guestPhone: string;
+  declare guestPhone: string;
 
   @Column({ type: DataType.STRING, field: 'guest_email' })
-  guestEmail: string;
+  declare guestEmail: string;
 
   @Column({ type: DataType.DATEONLY, allowNull: false })
-  date: string;
+  declare date: string;
 
   @Column({ type: DataType.TIME, allowNull: false, field: 'start_time' })
-  startTime: string;
+  declare startTime: string;
 
   @Column({ type: DataType.TIME, allowNull: false, field: 'end_time' })
-  endTime: string;
+  declare endTime: string;
 
   @Default(BookingStatus.ACTIVE)
   @Column({
     type: DataType.ENUM(...Object.values(BookingStatus)),
     allowNull: false,
   })
-  status: BookingStatus;
+  declare status: BookingStatus;
 
   @Column({ type: DataType.DECIMAL(10, 2), field: 'total_price' })
-  totalPrice: number;
+  declare totalPrice: number;
 
   @Column(DataType.TEXT)
-  notes: string;
+  declare notes: string;
 
   @Column({ type: DataType.DATE, field: 'cancelled_at' })
-  cancelledAt: Date;
+  declare cancelledAt: Date;
 
-  @BelongsTo(() => Court)
-  court: Court;
-
-  @BelongsTo(() => Business)
-  business: Business;
-
-  @BelongsTo(() => User)
-  user: User;
+  declare court: Court;
+  declare business: Business;
+  declare user: User;
 }

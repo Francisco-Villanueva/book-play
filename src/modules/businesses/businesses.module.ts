@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
-import { SequelizeModule } from '@nestjs/sequelize';
-import { Business } from './entities/business.model';
+import { businessProvider } from './business.provider';
 
 @Module({
-  imports: [SequelizeModule.forFeature([Business])],
-  exports: [SequelizeModule],
+  providers: [...businessProvider],
+  exports: [...businessProvider],
 })
 export class BusinessesModule {}

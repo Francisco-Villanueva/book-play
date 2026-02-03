@@ -27,7 +27,7 @@ export class CourtAvailability extends Model {
 
   @ForeignKey(() => Court)
   @Column({ type: DataType.UUID, allowNull: false, field: 'court_id' })
-  courtId: string;
+  declare courtId: string;
 
   @ForeignKey(() => AvailabilityRule)
   @Column({
@@ -35,5 +35,5 @@ export class CourtAvailability extends Model {
     allowNull: false,
     field: 'availability_rule_id',
   })
-  availabilityRuleId: string;
+  declare availabilityRuleId: string;
 }

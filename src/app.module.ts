@@ -1,7 +1,5 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
-import { SequelizeModule } from '@nestjs/sequelize';
-import { databaseConfig } from './config/database.config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
@@ -11,11 +9,12 @@ import { CourtsModule } from './modules/courts/courts.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { AvailabilityRulesModule } from './modules/availability-rules/availability-rules.module';
 import { ExceptionRulesModule } from './modules/exception-rules/exception-rules.module';
+import { DatabaseModule } from './modules/database/database.module';
 
 @Module({
   imports: [
+    DatabaseModule,
     ConfigModule.forRoot({ isGlobal: true }),
-    SequelizeModule.forRoot(databaseConfig()),
     AuthModule,
     UsersModule,
     BusinessesModule,

@@ -2,7 +2,6 @@ import {
   Column,
   DataType,
   Default,
-  HasMany,
   Model,
   PrimaryKey,
   Table,
@@ -11,6 +10,7 @@ import { User } from '../../users/entities/user.model';
 import { Court } from '../../courts/entities/court.model';
 import { AvailabilityRule } from '../../availability-rules/entities/availability-rule.model';
 import { ExceptionRule } from '../../exception-rules/entities/exception-rule.model';
+import { Booking } from '../../bookings/entities/booking.model';
 
 @Table({ tableName: 'businesses', underscored: true })
 export class Business extends Model {
@@ -20,37 +20,31 @@ export class Business extends Model {
   declare id: string;
 
   @Column({ type: DataType.STRING, allowNull: false })
-  name: string;
+  declare name: string;
 
   @Column(DataType.TEXT)
-  description: string;
+  declare description: string;
 
   @Column(DataType.STRING)
-  address: string;
+  declare address: string;
 
   @Column(DataType.STRING)
-  phone: string;
+  declare phone: string;
 
   @Column(DataType.STRING)
-  email: string;
+  declare email: string;
 
   @Default('America/Argentina/Buenos_Aires')
   @Column({ type: DataType.STRING, allowNull: false })
-  timezone: string;
+  declare timezone: string;
 
   @Default(60)
   @Column({ type: DataType.INTEGER, allowNull: false, field: 'slot_duration' })
-  slotDuration: number;
+  declare slotDuration: number;
 
-  @HasMany(() => User)
-  users: User[];
-
-  @HasMany(() => Court)
-  courts: Court[];
-
-  @HasMany(() => AvailabilityRule)
-  availabilityRules: AvailabilityRule[];
-
-  @HasMany(() => ExceptionRule)
-  exceptionRules: ExceptionRule[];
+  declare users: User[];
+  declare courts: Court[];
+  declare availabilityRules: AvailabilityRule[];
+  declare exceptionRules: ExceptionRule[];
+  declare bookings: Booking[];
 }

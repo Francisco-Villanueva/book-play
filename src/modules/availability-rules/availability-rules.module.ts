@@ -1,10 +1,8 @@
 import { Module } from '@nestjs/common';
-import { SequelizeModule } from '@nestjs/sequelize';
-import { AvailabilityRule } from './entities/availability-rule.model';
-import { CourtAvailability } from './entities/court-availability.model';
+import { availabilityRuleProvider } from './availability-rule.provider';
 
 @Module({
-  imports: [SequelizeModule.forFeature([AvailabilityRule, CourtAvailability])],
-  exports: [SequelizeModule],
+  providers: [...availabilityRuleProvider],
+  exports: [...availabilityRuleProvider],
 })
 export class AvailabilityRulesModule {}

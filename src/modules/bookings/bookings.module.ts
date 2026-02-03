@@ -1,9 +1,8 @@
 import { Module } from '@nestjs/common';
-import { SequelizeModule } from '@nestjs/sequelize';
-import { Booking } from './entities/booking.model';
+import { bookingProvider } from './booking.provider';
 
 @Module({
-  imports: [SequelizeModule.forFeature([Booking])],
-  exports: [SequelizeModule],
+  providers: [...bookingProvider],
+  exports: [...bookingProvider],
 })
 export class BookingsModule {}

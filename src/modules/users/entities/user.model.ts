@@ -1,10 +1,8 @@
 import {
-  BelongsTo,
   Column,
   DataType,
   Default,
   ForeignKey,
-  HasMany,
   Model,
   PrimaryKey,
   Table,
@@ -14,7 +12,7 @@ import { GlobalRole, BusinessRole } from '../../../common/enums';
 import { Business } from '../../businesses/entities/business.model';
 import { Booking } from '../../bookings/entities/booking.model';
 
-@Table({ tableName: 'users', underscored: true })
+@Table({ tableName: 'users' })
 export class User extends Model {
   @PrimaryKey
   @Default(DataType.UUIDV4)
@@ -22,21 +20,21 @@ export class User extends Model {
   declare id: string;
 
   @Column({ type: DataType.STRING, allowNull: false })
-  name: string;
+  declare name: string;
 
   @Unique
   @Column({ type: DataType.STRING, allowNull: false })
-  userName: string;
+  declare userName: string;
 
   @Unique
   @Column({ type: DataType.STRING, allowNull: false })
-  email: string;
+  declare email: string;
 
   @Column({ type: DataType.STRING, allowNull: false })
-  password: string;
+  declare password: string;
 
   @Column(DataType.STRING)
-  phone: string;
+  declare phone: string;
 
   @Default(GlobalRole.PLAYER)
   @Column({
@@ -44,28 +42,27 @@ export class User extends Model {
     allowNull: false,
     field: 'global_role',
   })
-  globalRole: GlobalRole;
+  declare globalRole: GlobalRole;
 
   @ForeignKey(() => Business)
   @Column({ type: DataType.UUID, allowNull: true, field: 'business_id' })
-  businessId: string;
+  declare businessId: string;
 
   @Column({
     type: DataType.ENUM(...Object.values(BusinessRole)),
     allowNull: true,
     field: 'business_role',
   })
-  businessRole: BusinessRole;
+  declare businessRole: BusinessRole;
 
-  @BelongsTo(() => Business)
-  business: Business;
+  declare business: Business;
+  declare bookings: Booking[];
 
-  @HasMany(() => Booking)
-  bookings: Booking[];
-
-  toJSON() {
+  toJSON({ includePassword = false }: { includePassword?: boolean } = {}) {
     const values = { ...this.get() };
-    delete values.password;
+    if (!includePassword) {
+      delete values.password;
+    }
     return values;
   }
 }

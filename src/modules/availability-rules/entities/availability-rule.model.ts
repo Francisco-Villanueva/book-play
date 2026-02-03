@@ -1,6 +1,4 @@
 import {
-  BelongsTo,
-  BelongsToMany,
   Column,
   DataType,
   Default,
@@ -11,7 +9,6 @@ import {
 } from 'sequelize-typescript';
 import { Business } from '../../businesses/entities/business.model';
 import { Court } from '../../courts/entities/court.model';
-import { CourtAvailability } from './court-availability.model';
 
 @Table({
   tableName: 'availability_rules',
@@ -26,27 +23,24 @@ export class AvailabilityRule extends Model {
 
   @ForeignKey(() => Business)
   @Column({ type: DataType.UUID, allowNull: false, field: 'business_id' })
-  businessId: string;
+  declare businessId: string;
 
   @Column({ type: DataType.STRING, allowNull: false })
-  name: string;
+  declare name: string;
 
   @Column({ type: DataType.INTEGER, allowNull: false, field: 'day_of_week' })
-  dayOfWeek: number;
+  declare dayOfWeek: number;
 
   @Column({ type: DataType.TIME, allowNull: false, field: 'start_time' })
-  startTime: string;
+  declare startTime: string;
 
   @Column({ type: DataType.TIME, allowNull: false, field: 'end_time' })
-  endTime: string;
+  declare endTime: string;
 
   @Default(true)
   @Column({ type: DataType.BOOLEAN, allowNull: false, field: 'is_active' })
-  isActive: boolean;
+  declare isActive: boolean;
 
-  @BelongsTo(() => Business)
-  business: Business;
-
-  @BelongsToMany(() => Court, () => CourtAvailability)
-  courts: Court[];
+  declare business: Business;
+  declare courts: Court[];
 }
