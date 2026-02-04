@@ -1,9 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { getModelToken } from '@nestjs/sequelize';
 import { ConflictException } from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
-import { User } from './entities/user.model';
+import { USER_REPOSITORY } from '../database/constants/repositories.constants';
 
 jest.mock('bcrypt');
 
@@ -19,7 +18,7 @@ describe('UsersService', () => {
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         UsersService,
-        { provide: getModelToken(User), useValue: mockUserModel },
+        { provide: USER_REPOSITORY, useValue: mockUserModel },
       ],
     }).compile();
 
@@ -28,7 +27,12 @@ describe('UsersService', () => {
   });
 
   describe('create', () => {
-    const dto = { name: 'John', email: 'john@test.com', password: 'password123' };
+    const dto = {
+      name: 'John',
+      email: 'john@test.com',
+      password: 'password123',
+      userName: 'johndoe',
+    };
 
     it('should create a user with hashed password', async () => {
       mockUserModel.findOne.mockResolvedValue(null);
@@ -58,6 +62,15 @@ describe('UsersService', () => {
       mockUserModel.findOne.mockResolvedValue(user);
 
       expect(await service.findByEmail('john@test.com')).toEqual(user);
+    });
+  });
+
+  describe('findByUsernameOrEmail', () => {
+    it('should return user by username or email', async () => {
+      const user = { id: 'uuid-1', userName: 'johndoe', email: 'john@test.com' };
+      mockUserModel.findOne.mockResolvedValue(user);
+
+      expect(await service.findByUsernameOrEmail('johndoe')).toEqual(user);
     });
   });
 
