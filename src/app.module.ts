@@ -9,6 +9,7 @@ import { CourtsModule } from './modules/courts/courts.module';
 import { BookingsModule } from './modules/bookings/bookings.module';
 import { AvailabilityRulesModule } from './modules/availability-rules/availability-rules.module';
 import { ExceptionRulesModule } from './modules/exception-rules/exception-rules.module';
+import { BusinessUsersModule } from './modules/business-users/business-users.module';
 import { DatabaseModule } from './modules/database/database.module';
 
 @Module({
@@ -18,6 +19,7 @@ import { DatabaseModule } from './modules/database/database.module';
     AuthModule,
     UsersModule,
     BusinessesModule,
+    BusinessUsersModule,
     CourtsModule,
     BookingsModule,
     AvailabilityRulesModule,

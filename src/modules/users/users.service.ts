@@ -3,6 +3,7 @@ import { Op } from 'sequelize';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.model';
 import { USER_REPOSITORY } from '../database/constants/repositories.constants';
+import { RegisterDto } from '../auth/dto/register.dto';
 
 @Injectable()
 export class UsersService {
@@ -10,29 +11,25 @@ export class UsersService {
     @Inject(USER_REPOSITORY) private readonly userModel: typeof User,
   ) {}
 
-  async create(data: {
-    name: string;
-    email: string;
-    password: string;
-    userName: string;
-    phone?: string;
-    globalRole?: string;
-  }): Promise<User> {
-    const existing = await this.userModel.findOne({
+  async create(data: RegisterDto): Promise<User> {
+    const existingEmail = await this.userModel.findOne({
       where: { email: data.email },
     });
-    if (existing) {
+    if (existingEmail) {
       throw new ConflictException('Email already registered');
+    }
+    const existingUserName = await this.userModel.findOne({
+      where: { userName: data.userName },
+    });
+    if (existingUserName) {
+      throw new ConflictException('Username already registered');
     }
 
     const password = await bcrypt.hash(data.password, 10);
+
     return this.userModel.create({
-      name: data.name,
-      email: data.email,
+      ...data,
       password,
-      userName: data.userName,
-      phone: data.phone,
-      globalRole: data.globalRole,
     });
   }
 

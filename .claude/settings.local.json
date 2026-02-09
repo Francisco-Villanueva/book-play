@@ -12,7 +12,9 @@
       "Bash(pnpm run test)",
       "Bash(docker compose ps:*)",
       "Bash(curl:*)",
-      "Bash(npx ts-node -e \"\nconst http = require\\(''http''\\);\nconst data = JSON.stringify\\({username:''Fran12345'',password:''Fran12345''}\\);\nconst req = http.request\\({hostname:''localhost'',port:3000,path:''/api/auth/login'',method:''POST'',headers:{''Content-Type'':''application/json'',''Content-Length'':data.length}}, res => {\n  let body='''';\n  res.on\\(''data'',c=>body+=c\\);\n  res.on\\(''end'',\\(\\)=>console.log\\(res.statusCode,body\\)\\);\n}\\);\nreq.write\\(data\\);\nreq.end\\(\\);\n\")"
+      "Bash(npx ts-node -e \"\nconst http = require\\(''http''\\);\nconst data = JSON.stringify\\({username:''Fran12345'',password:''Fran12345''}\\);\nconst req = http.request\\({hostname:''localhost'',port:3000,path:''/api/auth/login'',method:''POST'',headers:{''Content-Type'':''application/json'',''Content-Length'':data.length}}, res => {\n  let body='''';\n  res.on\\(''data'',c=>body+=c\\);\n  res.on\\(''end'',\\(\\)=>console.log\\(res.statusCode,body\\)\\);\n}\\);\nreq.write\\(data\\);\nreq.end\\(\\);\n\")",
+      "Bash(xargs:*)",
+      "Bash(cat:*)"
     ]
   }
 }

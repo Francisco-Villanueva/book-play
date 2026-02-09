@@ -1,6 +1,7 @@
 import { Sequelize } from 'sequelize-typescript';
 import { User } from '../users/entities/user.model';
 import { Business } from '../businesses/entities/business.model';
+import { BusinessUser } from '../business-users/entities/business-user.model';
 import { Court } from '../courts/entities/court.model';
 import { Booking } from '../bookings/entities/booking.model';
 import { AvailabilityRule } from '../availability-rules/entities/availability-rule.model';
@@ -10,11 +11,14 @@ import { CourtException } from '../exception-rules/entities/court-exception.mode
 
 function defineAssociations() {
   // User
-  User.belongsTo(Business, { foreignKey: 'businessId', as: 'business' });
+  User.hasMany(BusinessUser, { foreignKey: 'userId', as: 'businessUsers' });
   User.hasMany(Booking, { foreignKey: 'userId', as: 'bookings' });
 
   // Business
-  Business.hasMany(User, { foreignKey: 'businessId', as: 'users' });
+  Business.hasMany(BusinessUser, {
+    foreignKey: 'businessId',
+    as: 'businessUsers',
+  });
   Business.hasMany(Court, { foreignKey: 'businessId', as: 'courts' });
   Business.hasMany(AvailabilityRule, {
     foreignKey: 'businessId',
@@ -25,6 +29,13 @@ function defineAssociations() {
     as: 'exceptionRules',
   });
   Business.hasMany(Booking, { foreignKey: 'businessId', as: 'bookings' });
+
+  // BusinessUser
+  BusinessUser.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+  BusinessUser.belongsTo(Business, {
+    foreignKey: 'businessId',
+    as: 'business',
+  });
 
   // Court
   Court.belongsTo(Business, { foreignKey: 'businessId', as: 'business' });
@@ -85,6 +96,7 @@ export const databaseProviders = [
       sequelize.addModels([
         User,
         Business,
+        BusinessUser,
         Court,
         Booking,
         AvailabilityRule,

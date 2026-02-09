@@ -2,14 +2,12 @@ import {
   Column,
   DataType,
   Default,
-  ForeignKey,
   Model,
   PrimaryKey,
   Table,
   Unique,
 } from 'sequelize-typescript';
-import { GlobalRole, BusinessRole } from '../../../common/enums';
-import { Business } from '../../businesses/entities/business.model';
+import { GlobalRole } from '../../../common/enums';
 import { Booking } from '../../bookings/entities/booking.model';
 
 @Table({ tableName: 'users' })
@@ -44,18 +42,6 @@ export class User extends Model {
   })
   declare globalRole: GlobalRole;
 
-  @ForeignKey(() => Business)
-  @Column({ type: DataType.UUID, allowNull: true, field: 'business_id' })
-  declare businessId: string;
-
-  @Column({
-    type: DataType.ENUM(...Object.values(BusinessRole)),
-    allowNull: true,
-    field: 'business_role',
-  })
-  declare businessRole: BusinessRole;
-
-  declare business: Business;
   declare bookings: Booking[];
 
   toJSON({ includePassword = false }: { includePassword?: boolean } = {}) {

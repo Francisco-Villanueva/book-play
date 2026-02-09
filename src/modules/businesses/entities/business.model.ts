@@ -6,7 +6,7 @@ import {
   PrimaryKey,
   Table,
 } from 'sequelize-typescript';
-import { User } from '../../users/entities/user.model';
+import { BusinessUser } from '../../business-users/entities/business-user.model';
 import { Court } from '../../courts/entities/court.model';
 import { AvailabilityRule } from '../../availability-rules/entities/availability-rule.model';
 import { ExceptionRule } from '../../exception-rules/entities/exception-rule.model';
@@ -42,7 +42,7 @@ export class Business extends Model {
   @Column({ type: DataType.INTEGER, allowNull: false, field: 'slot_duration' })
   declare slotDuration: number;
 
-  declare users: User[];
+  declare businessUsers: BusinessUser[];
   declare courts: Court[];
   declare availabilityRules: AvailabilityRule[];
   declare exceptionRules: ExceptionRule[];
