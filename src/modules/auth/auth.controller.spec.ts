@@ -58,7 +58,10 @@ describe('AuthController', () => {
       };
       const req = { user };
 
-      expect(controller.getProfile(req)).toEqual({ id: 'uuid-1', email: 'john@test.com' });
+      expect(controller.getProfile(req)).toEqual({
+        id: 'uuid-1',
+        email: 'john@test.com',
+      });
     });
   });
 });

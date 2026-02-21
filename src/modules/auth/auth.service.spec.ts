@@ -81,7 +81,10 @@ describe('AuthService', () => {
       mockUsersService.findByUsernameOrEmail.mockResolvedValue(mockUser);
       mockUsersService.validatePassword.mockResolvedValue(true);
 
-      const result = await service.login({ username: 'johndoe', password: 'password123' });
+      const result = await service.login({
+        username: 'johndoe',
+        password: 'password123',
+      });
 
       expect(result.accessToken).toBe('jwt-token');
       expect(result.user.email).toBe('john@test.com');

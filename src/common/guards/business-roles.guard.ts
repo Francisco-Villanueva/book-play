@@ -47,15 +47,11 @@ export class BusinessRolesGuard implements CanActivate {
     });
 
     if (!businessUser) {
-      throw new ForbiddenException(
-        'You do not have access to this business',
-      );
+      throw new ForbiddenException('You do not have access to this business');
     }
 
-    if (!requiredRoles.includes(businessUser.role as BusinessRole)) {
-      throw new ForbiddenException(
-        'Insufficient permissions for this action',
-      );
+    if (!requiredRoles.includes(businessUser.role)) {
+      throw new ForbiddenException('Insufficient permissions for this action');
     }
 
     request.businessUser = businessUser;

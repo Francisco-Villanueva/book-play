@@ -67,7 +67,11 @@ describe('UsersService', () => {
 
   describe('findByUsernameOrEmail', () => {
     it('should return user by username or email', async () => {
-      const user = { id: 'uuid-1', userName: 'johndoe', email: 'john@test.com' };
+      const user = {
+        id: 'uuid-1',
+        userName: 'johndoe',
+        email: 'john@test.com',
+      };
       mockUserModel.findOne.mockResolvedValue(user);
 
       expect(await service.findByUsernameOrEmail('johndoe')).toEqual(user);

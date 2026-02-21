@@ -21,9 +21,7 @@ import { BusinessRole } from '../../common/enums';
 @Controller('businesses/:businessId/exception-rules')
 @UseGuards(JwtAuthGuard, BusinessRolesGuard)
 export class ExceptionRulesController {
-  constructor(
-    private readonly exceptionRulesService: ExceptionRulesService,
-  ) {}
+  constructor(private readonly exceptionRulesService: ExceptionRulesService) {}
 
   @Post()
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
