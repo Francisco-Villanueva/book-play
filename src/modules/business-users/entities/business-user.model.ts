@@ -1,4 +1,5 @@
 import {
+  BelongsTo,
   Column,
   DataType,
   Default,
@@ -39,7 +40,4 @@ export class BusinessUser extends Model {
     allowNull: false,
   })
   declare role: BusinessRole;
-
-  declare user: User;
-  declare business: Business;
 }

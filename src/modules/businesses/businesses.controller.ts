@@ -20,7 +20,7 @@ export class BusinessesController {
     const businesses = await this.businessesService.findAllBusinesses(
       req.user.id,
     );
-    return { businesses };
+    return businesses;
   }
   @UseGuards(JwtAuthGuard)
   @Post()

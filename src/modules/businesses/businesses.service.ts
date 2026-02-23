@@ -21,7 +21,16 @@ export class BusinessesService {
   ) {}
 
   async findAllBusinesses(userId: string): Promise<Business[]> {
-    return this.businessModel.findAll();
+    return this.businessModel.findAll({
+      include: [
+        {
+          model: BusinessUser,
+          as: 'businessUsers',
+          where: { userId },
+          attributes: ['role'],
+        },
+      ],
+    });
   }
 
   async createBusiness(
