@@ -36,14 +36,14 @@ export class BusinessUsersController {
       dto,
       req.businessUser.role,
     );
-    return { member };
+    return member;
   }
 
   @Get()
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
   async findAll(@Param('businessId') businessId: string) {
     const members = await this.businessUsersService.findAllMembers(businessId);
-    return { members };
+    return members;
   }
 
   @Patch(':userId')
@@ -60,7 +60,7 @@ export class BusinessUsersController {
       dto,
       req.businessUser.role,
     );
-    return { member };
+    return member;
   }
 
   @Delete(':userId')

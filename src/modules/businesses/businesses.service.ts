@@ -27,10 +27,14 @@ export class BusinessesService {
           model: BusinessUser,
           as: 'businessUsers',
           where: { userId },
-          attributes: ['role'],
+          // attributes: ['role', ],
         },
       ],
     });
+  }
+
+  async findBusinessById(businessId: string): Promise<Business | null> {
+    return await this.businessModel.findByPk(businessId);
   }
 
   async createBusiness(

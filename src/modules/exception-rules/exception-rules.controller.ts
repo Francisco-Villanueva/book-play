@@ -31,15 +31,13 @@ export class ExceptionRulesController {
   ) {
     const rule = await this.exceptionRulesService.create(businessId, dto);
     return {
-      exceptionRule: {
-        id: rule.id,
-        date: rule.date,
-        startTime: rule.startTime,
-        endTime: rule.endTime,
-        isAvailable: rule.isAvailable,
-        reason: rule.reason,
-        courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
-      },
+      id: rule.id,
+      date: rule.date,
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      isAvailable: rule.isAvailable,
+      reason: rule.reason,
+      courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
     };
   }
 
@@ -48,17 +46,7 @@ export class ExceptionRulesController {
   async findAll(@Param('businessId') businessId: string) {
     const rules =
       await this.exceptionRulesService.findAllByBusiness(businessId);
-    return {
-      exceptionRules: rules.map((rule) => ({
-        id: rule.id,
-        date: rule.date,
-        startTime: rule.startTime,
-        endTime: rule.endTime,
-        isAvailable: rule.isAvailable,
-        reason: rule.reason,
-        courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
-      })),
-    };
+    return rules;
   }
 
   @Get(':ruleId')
@@ -69,15 +57,13 @@ export class ExceptionRulesController {
   ) {
     const rule = await this.exceptionRulesService.findOne(ruleId, businessId);
     return {
-      exceptionRule: {
-        id: rule.id,
-        date: rule.date,
-        startTime: rule.startTime,
-        endTime: rule.endTime,
-        isAvailable: rule.isAvailable,
-        reason: rule.reason,
-        courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
-      },
+      id: rule.id,
+      date: rule.date,
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      isAvailable: rule.isAvailable,
+      reason: rule.reason,
+      courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
     };
   }
 
@@ -94,15 +80,13 @@ export class ExceptionRulesController {
       dto,
     );
     return {
-      exceptionRule: {
-        id: rule.id,
-        date: rule.date,
-        startTime: rule.startTime,
-        endTime: rule.endTime,
-        isAvailable: rule.isAvailable,
-        reason: rule.reason,
-        courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
-      },
+      id: rule.id,
+      date: rule.date,
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      isAvailable: rule.isAvailable,
+      reason: rule.reason,
+      courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
     };
   }
 

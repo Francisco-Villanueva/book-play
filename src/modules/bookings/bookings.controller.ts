@@ -29,7 +29,7 @@ export class BookingsController {
   ) {
     const userId = req.user?.id;
     const booking = await this.bookingsService.create(businessId, dto, userId);
-    return { booking };
+    return booking;
   }
 
   @Get()
@@ -37,7 +37,7 @@ export class BookingsController {
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
   async findAll(@Param('businessId') businessId: string) {
     const bookings = await this.bookingsService.findAllByBusiness(businessId);
-    return { bookings };
+    return bookings;
   }
 
   @Get(':bookingId')
@@ -48,7 +48,7 @@ export class BookingsController {
     @Param('bookingId') bookingId: string,
   ) {
     const booking = await this.bookingsService.findOne(bookingId, businessId);
-    return { booking };
+    return booking;
   }
 
   @Patch(':bookingId/cancel')
@@ -59,6 +59,6 @@ export class BookingsController {
     @Param('bookingId') bookingId: string,
   ) {
     const booking = await this.bookingsService.cancel(bookingId, businessId);
-    return { booking };
+    return booking;
   }
 }

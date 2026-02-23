@@ -2,6 +2,7 @@ import {
   Body,
   Controller,
   Get,
+  Param,
   Post,
   Request,
   UseGuards,
@@ -22,6 +23,13 @@ export class BusinessesController {
     );
     return businesses;
   }
+  @UseGuards(JwtAuthGuard)
+  @Get(':businessId')
+  async findById(@Request() req, @Param('businessId') businessId: string) {
+    const business = await this.businessesService.findBusinessById(businessId);
+    return business;
+  }
+
   @UseGuards(JwtAuthGuard)
   @Post()
   async create(@Body() dto: CreateBusinessDto, @Request() req) {

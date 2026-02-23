@@ -33,15 +33,13 @@ export class AvailabilityRulesController {
   ) {
     const rule = await this.availabilityRulesService.create(businessId, dto);
     return {
-      availabilityRule: {
-        id: rule.id,
-        name: rule.name,
-        dayOfWeek: rule.dayOfWeek,
-        startTime: rule.startTime,
-        endTime: rule.endTime,
-        isActive: rule.isActive,
-        courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
-      },
+      id: rule.id,
+      name: rule.name,
+      dayOfWeek: rule.dayOfWeek,
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      isActive: rule.isActive,
+      courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
     };
   }
 
@@ -50,17 +48,7 @@ export class AvailabilityRulesController {
   async findAll(@Param('businessId') businessId: string) {
     const rules =
       await this.availabilityRulesService.findAllByBusiness(businessId);
-    return {
-      availabilityRules: rules.map((rule) => ({
-        id: rule.id,
-        name: rule.name,
-        dayOfWeek: rule.dayOfWeek,
-        startTime: rule.startTime,
-        endTime: rule.endTime,
-        isActive: rule.isActive,
-        courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
-      })),
-    };
+    return rules;
   }
 
   @Get(':ruleId')
@@ -74,15 +62,13 @@ export class AvailabilityRulesController {
       businessId,
     );
     return {
-      availabilityRule: {
-        id: rule.id,
-        name: rule.name,
-        dayOfWeek: rule.dayOfWeek,
-        startTime: rule.startTime,
-        endTime: rule.endTime,
-        isActive: rule.isActive,
-        courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
-      },
+      id: rule.id,
+      name: rule.name,
+      dayOfWeek: rule.dayOfWeek,
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      isActive: rule.isActive,
+      courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
     };
   }
 
@@ -99,15 +85,13 @@ export class AvailabilityRulesController {
       dto,
     );
     return {
-      availabilityRule: {
-        id: rule.id,
-        name: rule.name,
-        dayOfWeek: rule.dayOfWeek,
-        startTime: rule.startTime,
-        endTime: rule.endTime,
-        isActive: rule.isActive,
-        courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
-      },
+      id: rule.id,
+      name: rule.name,
+      dayOfWeek: rule.dayOfWeek,
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      isActive: rule.isActive,
+      courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
     };
   }
 

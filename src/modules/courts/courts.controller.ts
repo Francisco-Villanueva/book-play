@@ -30,20 +30,14 @@ export class CourtsController {
     @Body() dto: CreateCourtDto,
   ) {
     const court = await this.courtsService.create(businessId, dto);
-    return {
-      court: {
-        id: court.id,
-        name: court.name,
-        createdAt: court.createdAt,
-      },
-    };
+    return { id: court.id, name: court.name, createdAt: court.createdAt };
   }
 
   @Get()
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
   async findAll(@Param('businessId') businessId: string) {
     const courts = await this.courtsService.findAllByBusiness(businessId);
-    return { courts };
+    return courts;
   }
 
   @Get(':courtId')
@@ -53,7 +47,7 @@ export class CourtsController {
     @Param('courtId') courtId: string,
   ) {
     const court = await this.courtsService.findOne(courtId, businessId);
-    return { court };
+    return court;
   }
 
   @Patch(':courtId')
@@ -65,11 +59,9 @@ export class CourtsController {
   ) {
     const court = await this.courtsService.update(courtId, businessId, dto);
     return {
-      court: {
-        id: court.id,
-        name: court.name,
-        updatedAt: court.updatedAt,
-      },
+      id: court.id,
+      name: court.name,
+      updatedAt: court.updatedAt,
     };
   }
 
