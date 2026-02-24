@@ -2,7 +2,8 @@ import { z } from 'zod';
 
 const envZodModel = z.object({
   DATABASE_URL: z.string().url(),
-  APP_PORT: z.string(),
+  PORT: z.string().optional(),
+  APP_PORT: z.string().optional(),
 });
 
 envZodModel.parse(process.env);

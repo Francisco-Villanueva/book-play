@@ -29,94 +29,49 @@ src/
 └── modules/
     └── database/
         ├── database.module.ts
-        ├── database.provider.ts
-        ├── database.config.ts
-        └── interfaces/
-            └── dbConfig.interface.ts
+        └── database.provider.ts
 ```
 
-### 1.2 Interface de configuracion
-
-```typescript
-// src/core/database/interfaces/dbConfig.interface.ts
-export interface IDatabaseConfig {
-  development: string;
-  test: string;
-  production: string;
-}
-```
-
-### 1.3 Archivo de configuracion
-
-```typescript
-// src/core/database/database.config.ts
-import { IDatabaseConfig } from './interfaces/dbConfig.interface';
-import * as dotenv from 'dotenv';
-dotenv.config();
-
-export const databaseConfig: IDatabaseConfig = {
-  development: process.env.DATABASE_URL,
-  test: process.env.DATABASE_URL,
-  production: process.env.DATABASE_URL,
-};
-```
-
-### 1.4 Variables de entorno
+### 1.2 Variables de entorno
 
 ```env
 # .env
 DATABASE_URL=postgres://usuario:password@host:puerto/nombre_db
 ```
 
-### 1.5 Provider de base de datos
+### 1.3 Provider de base de datos
+
+El provider es el unico punto de configuracion de la conexion. Lee `DATABASE_URL` directamente del entorno, registra todos los modelos, define las asociaciones y ejecuta la sincronizacion del schema.
 
 ```typescript
-// src/core/database/database.provider.ts
+// src/modules/database/database.provider.ts
 import { Sequelize } from 'sequelize-typescript';
-import { databaseConfig } from './database.config';
-import { SEQUELIZE, DEVELOPMENT, PRODUCTION, TEST } from '../constants';
+import { User } from '../users/entities/user.model';
+// ... importar todos los modelos
 
-// Importar todos los modelos
-import { User } from '../../user/schema/user.model';
-import { Company } from '../../company/schema/company.model';
-// ... otros modelos
+function defineAssociations() {
+  // Definir relaciones entre modelos aqui
+  User.hasMany(/* ... */);
+  // ...
+}
 
 export const databaseProviders = [
   {
-    provide: SEQUELIZE,
+    provide: 'SEQUELIZE',
     useFactory: async () => {
-      let config: string;
-      switch (process.env.NODE_ENV) {
-        case DEVELOPMENT:
-          config = databaseConfig.development;
-          break;
-        case TEST:
-          config = databaseConfig.test;
-          break;
-        case PRODUCTION:
-          config = databaseConfig.production;
-          break;
-        default:
-          config = databaseConfig.development;
-      }
-
-      const sequelize = new Sequelize(config, {
+      const sequelize = new Sequelize(process.env.DATABASE_URL, {
         dialect: 'postgres',
         logging: false,
       });
 
-      // Registrar modelos
       sequelize.addModels([
         User,
-        Company,
-        // ... otros modelos
+        // ... todos los modelos
       ]);
 
-      // Definir relaciones (ver seccion 4)
-      // ...
+      defineAssociations();
 
-      // Sincronizar con la base de datos
-      // alter: true permite cambios sin perder datos
+      // alter: true modifica el schema sin perder datos existentes
       await sequelize.sync({ alter: true });
 
       return sequelize;
@@ -125,7 +80,7 @@ export const databaseProviders = [
 ];
 ```
 
-### 1.6 Modulo de base de datos
+### 1.4 Modulo de base de datos
 
 ```typescript
 // src/core/database/database.module.ts
@@ -559,18 +514,11 @@ async updateStatus(id: string, newStatus: string): Promise<void> {
 
 ```
 src/
-├── core/
+├── modules/
 │   ├── database/
-│   │   ├── database.module.ts
-│   │   ├── database.provider.ts
-│   │   ├── database.config.ts
-│   │   ├── interfaces/
-│   │   │   └── dbConfig.interface.ts
-│   │   └── schema/
-│   │       └── base.model.ts
-│   └── constants/
-│       └── index.ts
-│
+│   │   ├── database.module.ts     ← registra y exporta el provider
+│   │   └── database.provider.ts  ← conexion, modelos, asociaciones y sync
+│   │
 ├── user/                          # Cada entidad en su propia carpeta
 │   ├── user.module.ts
 │   ├── user.controller.ts
@@ -615,12 +563,15 @@ src/
 
 ### Sincronizacion de BD
 
+La sincronizacion se realiza en `src/modules/database/database.provider.ts` al iniciar la aplicacion.
+
 ```typescript
-// Desarrollo: alter permite cambios sin perder datos
+// alter: true modifica columnas existentes sin perder datos
+// Se ejecuta en todos los entornos actualmente
 await sequelize.sync({ alter: true });
 
-// Produccion: nunca usar force: true (borra datos)
-// Usar migraciones en su lugar
+// NUNCA usar force: true en produccion — borra todas las tablas y datos
+// await sequelize.sync({ force: true }); // ← PELIGROSO
 ```
 
 ### Validaciones en modelo

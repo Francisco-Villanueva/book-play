@@ -10,8 +10,7 @@ export const databaseConfig = (): SequelizeModuleOptions => ({
     },
   },
   autoLoadModels: true,
-  synchronize: true,
-  sync: { force: true },
+  synchronize: process.env.NODE_ENV !== 'production',
   logging: false,
   define: {
     timestamps: true,
