@@ -1,4 +1,10 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
+import { Op } from 'sequelize';
 import { Sequelize } from 'sequelize-typescript';
 import {
   AVAILABILITY_RULE_REPOSITORY,
@@ -148,6 +154,69 @@ export class AvailabilityRulesService {
       await transaction.rollback();
       throw error;
     }
+  }
+
+  async findAllByCourt(
+    courtId: string,
+    businessId: string,
+  ): Promise<AvailabilityRule[]> {
+    const court = await this.courtModel.findOne({
+      where: { id: courtId, businessId },
+    });
+
+    if (!court) {
+      throw new NotFoundException('Court not found');
+    }
+
+    const links = await this.courtAvailabilityModel.findAll({
+      where: { courtId },
+    });
+
+    if (links.length === 0) return [];
+
+    const ruleIds = links.map((l) => l.availabilityRuleId);
+
+    return this.availabilityRuleModel.findAll({
+      where: { id: { [Op.in]: ruleIds }, businessId },
+      include: [{ model: this.courtModel, as: 'courts' }],
+    });
+  }
+
+  async assignRuleToCourt(
+    courtId: string,
+    ruleId: string,
+    businessId: string,
+  ): Promise<AvailabilityRule> {
+    const court = await this.courtModel.findOne({
+      where: { id: courtId, businessId },
+    });
+
+    if (!court) {
+      throw new NotFoundException('Court not found');
+    }
+
+    const rule = await this.availabilityRuleModel.findOne({
+      where: { id: ruleId, businessId },
+    });
+
+    if (!rule) {
+      throw new NotFoundException('Availability rule not found');
+    }
+
+    const existing = await this.courtAvailabilityModel.findOne({
+      where: { courtId, availabilityRuleId: ruleId },
+    });
+
+    if (existing) {
+      throw new ConflictException('Rule already assigned to this court');
+    }
+
+    await this.courtAvailabilityModel.create({
+      courtId,
+      availabilityRuleId: ruleId,
+    });
+
+    return this.findOne(ruleId, businessId);
   }
 
   private async validateCourts(
