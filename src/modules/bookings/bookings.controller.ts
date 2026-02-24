@@ -5,12 +5,14 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Req,
   UseGuards,
 } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { AvailabilityQueryDto } from './dto/availability-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import { BusinessRolesGuard } from '../../common/guards/business-roles.guard';
@@ -35,6 +37,22 @@ export class BookingsController {
     const userId = req.user?.id;
     const booking = await this.bookingsService.create(businessId, dto, userId);
     return booking;
+  }
+
+  @Get('availability')
+  @ApiOperation({ summary: 'Get available time slots for a court on a given date (public)' })
+  @ApiResponse({ status: 200, description: 'Available slots' })
+  @ApiResponse({ status: 400, description: 'Past date or invalid params' })
+  @ApiResponse({ status: 404, description: 'Business or court not found' })
+  async getAvailability(
+    @Param('businessId') businessId: string,
+    @Query() query: AvailabilityQueryDto,
+  ) {
+    return this.bookingsService.getAvailableSlots(
+      businessId,
+      query.courtId,
+      query.date,
+    );
   }
 
   @Get()

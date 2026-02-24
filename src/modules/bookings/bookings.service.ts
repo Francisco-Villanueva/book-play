@@ -293,6 +293,111 @@ export class BookingsService {
     }
   }
 
+  async getAvailableSlots(
+    businessId: string,
+    courtId: string,
+    date: string,
+  ): Promise<{
+    date: string;
+    courtId: string;
+    slotDuration: number;
+    availableSlots: { startTime: string; endTime: string }[];
+  }> {
+    const today = new Date().toISOString().split('T')[0];
+    if (date < today) {
+      throw new BadRequestException('Cannot check availability for a past date');
+    }
+
+    const business = await this.businessModel.findByPk(businessId);
+    if (!business) throw new NotFoundException('Business not found');
+
+    const court = await this.courtModel.findOne({ where: { id: courtId, businessId } });
+    if (!court) throw new NotFoundException('Court not found in this business');
+
+    const dayOfWeek = new Date(date + 'T12:00:00').getDay();
+    const { slotDuration } = business;
+
+    const exceptions = await this.exceptionRuleModel.findAll({
+      where: { businessId, date },
+      include: [{
+        model: Court,
+        as: 'courts',
+        where: { id: courtId },
+        through: { attributes: [] },
+        required: true,
+      }],
+    });
+
+    let openWindows: { start: string; end: string }[] = [];
+    const blockedRanges: { start: string; end: string }[] = [];
+    let hasEnablingException = false;
+
+    for (const exc of exceptions) {
+      const exStart = exc.startTime ? this.normalizeTime(exc.startTime) : null;
+      const exEnd = exc.endTime ? this.normalizeTime(exc.endTime) : null;
+
+      if (!exc.isAvailable) {
+        if (!exStart || !exEnd) {
+          return { date, courtId, slotDuration, availableSlots: [] };
+        }
+        blockedRanges.push({ start: exStart, end: exEnd });
+      } else if (exStart && exEnd) {
+        openWindows.push({ start: exStart, end: exEnd });
+        hasEnablingException = true;
+      }
+    }
+
+    if (!hasEnablingException) {
+      const rules = await this.availabilityRuleModel.findAll({
+        where: { businessId, dayOfWeek, isActive: true },
+        include: [{
+          model: Court,
+          as: 'courts',
+          where: { id: courtId },
+          through: { attributes: [] },
+          required: true,
+        }],
+      });
+      if (rules.length === 0) {
+        return { date, courtId, slotDuration, availableSlots: [] };
+      }
+      openWindows = rules.map((r) => ({
+        start: this.normalizeTime(r.startTime),
+        end: this.normalizeTime(r.endTime),
+      }));
+    }
+
+    const existingBookings = await this.bookingModel.findAll({
+      where: { courtId, date, status: BookingStatus.ACTIVE },
+    });
+
+    const availableSlots: { startTime: string; endTime: string }[] = [];
+
+    for (const window of openWindows) {
+      let slotStart = window.start;
+      while (true) {
+        const slotEnd = this.addMinutesToTime(slotStart, slotDuration);
+        if (slotEnd > window.end) break;
+
+        const isBlocked = blockedRanges.some(
+          (b) => slotStart < b.end && slotEnd > b.start,
+        );
+        const isBooked = existingBookings.some(
+          (bk) =>
+            slotStart < this.normalizeTime(bk.endTime) &&
+            slotEnd > this.normalizeTime(bk.startTime),
+        );
+
+        if (!isBlocked && !isBooked) {
+          availableSlots.push({ startTime: slotStart, endTime: slotEnd });
+        }
+        slotStart = slotEnd;
+      }
+    }
+
+    return { date, courtId, slotDuration, availableSlots };
+  }
+
   private addMinutesToTime(time: string, minutes: number): string {
     const [h, m] = time.split(':').map(Number);
     const totalMinutes = h * 60 + m + minutes;

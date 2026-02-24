@@ -20,14 +20,14 @@ import { BusinessRoles } from '../../common/decorators/business-roles.decorator'
 import { BusinessRole } from '../../common/enums';
 
 @ApiTags('courts')
-@ApiBearerAuth()
 @Controller('businesses/:businessId/courts')
-@UseGuards(JwtAuthGuard, BusinessRolesGuard)
 export class CourtsController {
   constructor(private readonly courtsService: CourtsService) {}
 
   @Post()
+  @UseGuards(JwtAuthGuard, BusinessRolesGuard)
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Create a court in a business' })
   @ApiResponse({ status: 201, description: 'Court created' })
   @ApiResponse({ status: 403, description: 'Insufficient role' })
@@ -40,7 +40,6 @@ export class CourtsController {
   }
 
   @Get()
-  @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
   @ApiOperation({ summary: 'List all courts in a business' })
   @ApiResponse({ status: 200, description: 'List of courts' })
   async findAll(@Param('businessId') businessId: string) {
@@ -49,7 +48,6 @@ export class CourtsController {
   }
 
   @Get(':courtId')
-  @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
   @ApiOperation({ summary: 'Get a court by ID' })
   @ApiResponse({ status: 200, description: 'Court details' })
   @ApiResponse({ status: 404, description: 'Court not found' })
@@ -62,7 +60,9 @@ export class CourtsController {
   }
 
   @Patch(':courtId')
+  @UseGuards(JwtAuthGuard, BusinessRolesGuard)
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
+  @ApiBearerAuth()
   @ApiOperation({ summary: 'Update a court' })
   @ApiResponse({ status: 200, description: 'Court updated' })
   @ApiResponse({ status: 404, description: 'Court not found' })
@@ -80,7 +80,9 @@ export class CourtsController {
   }
 
   @Delete(':courtId')
+  @UseGuards(JwtAuthGuard, BusinessRolesGuard)
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
+  @ApiBearerAuth()
   @HttpCode(HttpStatus.NO_CONTENT)
   @ApiOperation({ summary: 'Delete a court' })
   @ApiResponse({ status: 204, description: 'Court deleted' })
