@@ -10,6 +10,7 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
+import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
 import { AvailabilityRulesService } from './availability-rules.service';
 import { CreateAvailabilityRuleDto } from './dto/create-availability-rule.dto';
 import { UpdateAvailabilityRuleDto } from './dto/update-availability-rule.dto';
@@ -18,6 +19,8 @@ import { BusinessRolesGuard } from '../../common/guards/business-roles.guard';
 import { BusinessRoles } from '../../common/decorators/business-roles.decorator';
 import { BusinessRole } from '../../common/enums';
 
+@ApiTags('availability-rules')
+@ApiBearerAuth()
 @Controller('businesses/:businessId/availability-rules')
 @UseGuards(JwtAuthGuard, BusinessRolesGuard)
 export class AvailabilityRulesController {
@@ -27,6 +30,8 @@ export class AvailabilityRulesController {
 
   @Post()
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
+  @ApiOperation({ summary: 'Create an availability rule' })
+  @ApiResponse({ status: 201, description: 'Rule created' })
   async create(
     @Param('businessId') businessId: string,
     @Body() dto: CreateAvailabilityRuleDto,
@@ -45,6 +50,8 @@ export class AvailabilityRulesController {
 
   @Get()
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
+  @ApiOperation({ summary: 'List all availability rules for a business' })
+  @ApiResponse({ status: 200, description: 'List of rules' })
   async findAll(@Param('businessId') businessId: string) {
     const rules =
       await this.availabilityRulesService.findAllByBusiness(businessId);
@@ -53,6 +60,9 @@ export class AvailabilityRulesController {
 
   @Get(':ruleId')
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
+  @ApiOperation({ summary: 'Get an availability rule by ID' })
+  @ApiResponse({ status: 200, description: 'Rule details' })
+  @ApiResponse({ status: 404, description: 'Rule not found' })
   async findOne(
     @Param('businessId') businessId: string,
     @Param('ruleId') ruleId: string,
@@ -74,6 +84,9 @@ export class AvailabilityRulesController {
 
   @Put(':ruleId')
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
+  @ApiOperation({ summary: 'Update an availability rule' })
+  @ApiResponse({ status: 200, description: 'Rule updated' })
+  @ApiResponse({ status: 404, description: 'Rule not found' })
   async update(
     @Param('businessId') businessId: string,
     @Param('ruleId') ruleId: string,
@@ -98,6 +111,8 @@ export class AvailabilityRulesController {
   @Delete(':ruleId')
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
   @HttpCode(HttpStatus.NO_CONTENT)
+  @ApiOperation({ summary: 'Delete an availability rule' })
+  @ApiResponse({ status: 204, description: 'Rule deleted' })
   async remove(
     @Param('businessId') businessId: string,
     @Param('ruleId') ruleId: string,
