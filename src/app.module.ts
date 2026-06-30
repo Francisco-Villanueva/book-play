@@ -11,6 +11,7 @@ import { AvailabilityRulesModule } from './modules/availability-rules/availabili
 import { ExceptionRulesModule } from './modules/exception-rules/exception-rules.module';
 import { BusinessUsersModule } from './modules/business-users/business-users.module';
 import { DatabaseModule } from './modules/database/database.module';
+import { MasterModule } from './modules/master/master.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { DatabaseModule } from './modules/database/database.module';
     BookingsModule,
     AvailabilityRulesModule,
     ExceptionRulesModule,
+    MasterModule,
   ],
   controllers: [AppController],
   providers: [AppService],

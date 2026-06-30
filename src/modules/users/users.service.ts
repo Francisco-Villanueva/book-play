@@ -1,9 +1,19 @@
-import { ConflictException, Inject, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { Op } from 'sequelize';
 import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.model';
+import { BusinessUser } from '../business-users/entities/business-user.model';
+import { Business } from '../businesses/entities/business.model';
 import { USER_REPOSITORY } from '../database/constants/repositories.constants';
+import { GlobalRole } from '../../common/enums';
 import { RegisterDto } from '../auth/dto/register.dto';
+import { UpdateUserDto } from './dto/update-user.dto';
 
 @Injectable()
 export class UsersService {
@@ -30,6 +40,7 @@ export class UsersService {
     return this.userModel.create({
       ...data,
       password,
+      globalRole: GlobalRole.PLAYER, // always forced — clients cannot self-elevate
     });
   }
 
@@ -47,6 +58,40 @@ export class UsersService {
 
   async findById(id: string): Promise<User | null> {
     return await this.userModel.findByPk(id);
+  }
+
+  async findByIdWithBusinesses(id: string): Promise<User | null> {
+    return this.userModel.findByPk(id, {
+      include: [
+        {
+          model: BusinessUser,
+          as: 'businessUsers',
+          include: [
+            {
+              model: Business,
+              as: 'business',
+              attributes: ['id', 'name'],
+            },
+          ],
+        },
+      ],
+    });
+  }
+
+  async update(id: string, dto: UpdateUserDto): Promise<User> {
+    if (!dto.name && !dto.phone) {
+      throw new BadRequestException(
+        'At least one field (name or phone) is required',
+      );
+    }
+
+    const user = await this.findById(id);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+
+    await user.update(dto);
+    return user;
   }
 
   async validatePassword(

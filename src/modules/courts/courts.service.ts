@@ -1,6 +1,13 @@
-import { Inject, Injectable, NotFoundException } from '@nestjs/common';
+import {
+  BadRequestException,
+  Inject,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { COURT_REPOSITORY } from '../database/constants/repositories.constants';
 import { Court } from './entities/court.model';
+import { Booking } from '../bookings/entities/booking.model';
+import { BookingStatus } from '../../common/enums';
 import { CreateCourtDto } from './dto/create-court.dto';
 import { UpdateCourtDto } from './dto/update-court.dto';
 
@@ -43,6 +50,17 @@ export class CourtsService {
 
   async remove(id: string, businessId: string): Promise<void> {
     const court = await this.findOne(id, businessId);
+
+    const activeBookings = await Booking.count({
+      where: { courtId: id, status: BookingStatus.ACTIVE },
+    });
+
+    if (activeBookings > 0) {
+      throw new BadRequestException(
+        `Cannot delete court with ${activeBookings} active booking${activeBookings === 1 ? '' : 's'} (EC-013)`,
+      );
+    }
+
     await court.destroy();
   }
 }

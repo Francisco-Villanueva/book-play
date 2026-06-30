@@ -1,13 +1,5 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
-import {
-  IsEmail,
-  IsEnum,
-  IsNotEmpty,
-  IsOptional,
-  IsString,
-  MinLength,
-} from 'class-validator';
-import { GlobalRole } from '../../../common/enums';
+import { IsEmail, IsNotEmpty, IsOptional, IsString, MinLength } from 'class-validator';
 
 export class RegisterDto {
   @ApiProperty({ example: 'John Doe' })
@@ -33,9 +25,4 @@ export class RegisterDto {
   @IsOptional()
   @IsString()
   phone?: string;
-
-  @ApiPropertyOptional({ enum: GlobalRole, default: GlobalRole.PLAYER })
-  @IsOptional()
-  @IsEnum(GlobalRole)
-  globalRole?: GlobalRole;
 }

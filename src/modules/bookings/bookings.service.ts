@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Op } from 'sequelize';
+import { Op, Transaction } from 'sequelize';
 import { Sequelize } from 'sequelize-typescript';
 import {
   BOOKING_REPOSITORY,
@@ -19,8 +19,6 @@ import { Court } from '../courts/entities/court.model';
 import { Business } from '../businesses/entities/business.model';
 import { AvailabilityRule } from '../availability-rules/entities/availability-rule.model';
 import { ExceptionRule } from '../exception-rules/entities/exception-rule.model';
-import { CourtAvailability } from '../availability-rules/entities/court-availability.model';
-import { CourtException } from '../exception-rules/entities/court-exception.model';
 import { BookingStatus } from '../../common/enums';
 import { CreateBookingDto } from './dto/create-booking.dto';
 
@@ -65,25 +63,48 @@ export class BookingsService {
     this.validateNoMidnightCrossing(dto.startTime, endTime);
     this.validateNotInPast(dto.date);
 
-    await this.checkAvailability(dto.courtId, dto.date, dto.startTime, endTime);
-    await this.checkNoOverlap(dto.courtId, dto.date, dto.startTime, endTime);
+    await this.checkAvailability(businessId, dto.courtId, dto.date, dto.startTime, endTime);
 
-    const totalPrice =
-      Number(court.pricePerHour) * (business.slotDuration / 60);
-
-    return this.bookingModel.create({
-      courtId: dto.courtId,
-      businessId,
-      userId: userId || null,
-      guestName: dto.guestName || null,
-      guestPhone: dto.guestPhone || null,
-      guestEmail: dto.guestEmail || null,
-      date: dto.date,
-      startTime: dto.startTime,
-      endTime,
-      totalPrice,
-      notes: dto.notes || null,
+    // Serializable transaction serializes concurrent booking attempts on the same slot.
+    // PostgreSQL SSI detects the read-then-insert dependency and aborts one of two
+    // concurrent transactions that read "no overlap" and then both try to insert,
+    // returning error code 40001 (serialization_failure).
+    const t = await this.sequelize.transaction({
+      isolationLevel: Transaction.ISOLATION_LEVELS.SERIALIZABLE,
     });
+
+    try {
+      await this.checkNoOverlap(dto.courtId, dto.date, dto.startTime, endTime, t);
+
+      const totalPrice =
+        Number(court.pricePerHour) * (business.slotDuration / 60);
+
+      const booking = await this.bookingModel.create(
+        {
+          courtId: dto.courtId,
+          businessId,
+          userId: userId || null,
+          guestName: dto.guestName || null,
+          guestPhone: dto.guestPhone || null,
+          guestEmail: dto.guestEmail || null,
+          date: dto.date,
+          startTime: dto.startTime,
+          endTime,
+          totalPrice,
+          notes: dto.notes || null,
+        },
+        { transaction: t },
+      );
+
+      await t.commit();
+      return booking;
+    } catch (err) {
+      await t.rollback();
+      if (this.isSerializationError(err)) {
+        throw new ConflictException('This time slot is no longer available');
+      }
+      throw err;
+    }
   }
 
   async findAllByBusiness(businessId: string): Promise<Booking[]> {
@@ -125,174 +146,6 @@ export class BookingsService {
     return booking;
   }
 
-  private validateBooker(userId: string | undefined, dto: CreateBookingDto) {
-    if (userId) return;
-
-    const hasContact = dto.guestPhone || dto.guestEmail;
-    if (!dto.guestName || !hasContact) {
-      throw new BadRequestException(
-        'Guest bookings require guestName and at least guestPhone or guestEmail',
-      );
-    }
-  }
-
-  private validateNotInPast(date: string) {
-    const today = new Date().toISOString().split('T')[0];
-    if (date < today) {
-      throw new BadRequestException('Cannot book a date in the past');
-    }
-  }
-
-  private validateNoMidnightCrossing(startTime: string, endTime: string) {
-    if (endTime <= startTime) {
-      throw new BadRequestException(
-        'Booking slot cannot cross midnight (BR-023)',
-      );
-    }
-  }
-
-  private async checkAvailability(
-    courtId: string,
-    date: string,
-    startTime: string,
-    endTime: string,
-  ) {
-    const dayOfWeek = new Date(date + 'T12:00:00').getDay();
-
-    // Check exception rules first (highest priority)
-    const exceptions = await this.exceptionRuleModel.findAll({
-      where: { date },
-      include: [
-        {
-          model: Court,
-          as: 'courts',
-          where: { id: courtId },
-          through: { attributes: [] },
-        },
-      ],
-    });
-
-    if (exceptions.length > 0) {
-      return this.checkExceptionAvailability(
-        exceptions,
-        startTime,
-        endTime,
-        dayOfWeek,
-        courtId,
-      );
-    }
-
-    // No exceptions — fall back to availability rules
-    await this.checkAvailabilityRules(courtId, dayOfWeek, startTime, endTime);
-  }
-
-  private async checkExceptionAvailability(
-    exceptions: ExceptionRule[],
-    startTime: string,
-    endTime: string,
-    dayOfWeek: number,
-    courtId: string,
-  ) {
-    for (const exception of exceptions) {
-      const exStart = exception.startTime
-        ? this.normalizeTime(exception.startTime)
-        : null;
-      const exEnd = exception.endTime
-        ? this.normalizeTime(exception.endTime)
-        : null;
-
-      if (!exception.isAvailable) {
-        // Block exception
-        if (!exStart || !exEnd) {
-          // Full day block — no time range means entire day is closed
-          throw new BadRequestException(
-            `Court is closed on this date: ${exception.reason || 'no reason given'}`,
-          );
-        }
-        // Partial block — check if requested slot overlaps with blocked range
-        if (startTime < exEnd && endTime > exStart) {
-          throw new BadRequestException(
-            `Requested slot overlaps with a blocked period (${exStart}-${exEnd}): ${exception.reason || 'no reason given'}`,
-          );
-        }
-      } else {
-        // Enable exception — ONLY this range is available
-        if (exStart && exEnd) {
-          if (startTime < exStart || endTime > exEnd) {
-            throw new BadRequestException(
-              `Court is only available ${exStart}-${exEnd} on this date`,
-            );
-          }
-          return; // Slot fits within the enabled exception range
-        }
-      }
-    }
-
-    // If we only had partial block exceptions, still need to check availability rules
-    // for the non-blocked times
-    await this.checkAvailabilityRules(courtId, dayOfWeek, startTime, endTime);
-  }
-
-  private async checkAvailabilityRules(
-    courtId: string,
-    dayOfWeek: number,
-    startTime: string,
-    endTime: string,
-  ) {
-    const rules = await this.availabilityRuleModel.findAll({
-      where: { dayOfWeek, isActive: true },
-      include: [
-        {
-          model: Court,
-          as: 'courts',
-          where: { id: courtId },
-          through: { attributes: [] },
-        },
-      ],
-    });
-
-    if (rules.length === 0) {
-      throw new BadRequestException(
-        'No availability rules found for this court on this day',
-      );
-    }
-
-    const slotFits = rules.some((rule) => {
-      const ruleStart = this.normalizeTime(rule.startTime);
-      const ruleEnd = this.normalizeTime(rule.endTime);
-      return startTime >= ruleStart && endTime <= ruleEnd;
-    });
-
-    if (!slotFits) {
-      throw new BadRequestException(
-        'Requested time slot is outside available hours',
-      );
-    }
-  }
-
-  private async checkNoOverlap(
-    courtId: string,
-    date: string,
-    startTime: string,
-    endTime: string,
-  ) {
-    const overlapping = await this.bookingModel.findOne({
-      where: {
-        courtId,
-        date,
-        status: BookingStatus.ACTIVE,
-        startTime: { [Op.lt]: endTime },
-        endTime: { [Op.gt]: startTime },
-      },
-    });
-
-    if (overlapping) {
-      throw new ConflictException(
-        'This time slot overlaps with an existing booking',
-      );
-    }
-  }
-
   async getAvailableSlots(
     businessId: string,
     courtId: string,
@@ -317,16 +170,9 @@ export class BookingsService {
     const dayOfWeek = new Date(date + 'T12:00:00').getDay();
     const { slotDuration } = business;
 
-    const exceptions = await this.exceptionRuleModel.findAll({
-      where: { businessId, date },
-      include: [{
-        model: Court,
-        as: 'courts',
-        where: { id: courtId },
-        through: { attributes: [] },
-        required: true,
-      }],
-    });
+    // Fetch exceptions that apply to this court: global ones (no court entries)
+    // and court-specific ones that explicitly include this court.
+    const exceptions = await this.getApplicableExceptions(businessId, courtId, date);
 
     let openWindows: { start: string; end: string }[] = [];
     const blockedRanges: { start: string; end: string }[] = [];
@@ -338,6 +184,7 @@ export class BookingsService {
 
       if (!exc.isAvailable) {
         if (!exStart || !exEnd) {
+          // Full-day block — entire day is closed for this court
           return { date, courtId, slotDuration, availableSlots: [] };
         }
         blockedRanges.push({ start: exStart, end: exEnd });
@@ -396,6 +243,196 @@ export class BookingsService {
     }
 
     return { date, courtId, slotDuration, availableSlots };
+  }
+
+  // Returns ExceptionRules that apply to a given court on a given date.
+  // Includes both global exceptions (no court entries in CourtException — applies
+  // to all courts in the business) and court-specific exceptions for this court.
+  // Uses LEFT JOIN so global exceptions (with no CourtException rows) are not dropped.
+  private async getApplicableExceptions(
+    businessId: string,
+    courtId: string,
+    date: string,
+  ): Promise<ExceptionRule[]> {
+    const all = await this.exceptionRuleModel.findAll({
+      where: { businessId, date },
+      include: [{
+        model: Court,
+        as: 'courts',
+        attributes: ['id'],
+        through: { attributes: [] },
+        required: false, // LEFT JOIN — keeps exceptions with zero court entries
+      }],
+    });
+
+    return all.filter(
+      (exc) =>
+        exc.courts.length === 0 ||              // global: applies to all courts
+        exc.courts.some((c) => c.id === courtId), // court-specific: targets this court
+    );
+  }
+
+  private async checkAvailability(
+    businessId: string,
+    courtId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+  ): Promise<void> {
+    const dayOfWeek = new Date(date + 'T12:00:00').getDay();
+
+    const exceptions = await this.getApplicableExceptions(businessId, courtId, date);
+
+    if (exceptions.length > 0) {
+      return this.checkExceptionAvailability(
+        exceptions,
+        startTime,
+        endTime,
+        dayOfWeek,
+        businessId,
+        courtId,
+      );
+    }
+
+    await this.checkAvailabilityRules(businessId, courtId, dayOfWeek, startTime, endTime);
+  }
+
+  private async checkExceptionAvailability(
+    exceptions: ExceptionRule[],
+    startTime: string,
+    endTime: string,
+    dayOfWeek: number,
+    businessId: string,
+    courtId: string,
+  ): Promise<void> {
+    for (const exception of exceptions) {
+      const exStart = exception.startTime
+        ? this.normalizeTime(exception.startTime)
+        : null;
+      const exEnd = exception.endTime
+        ? this.normalizeTime(exception.endTime)
+        : null;
+
+      if (!exception.isAvailable) {
+        if (!exStart || !exEnd) {
+          // Full-day block
+          throw new BadRequestException(
+            `Court is closed on this date: ${exception.reason ?? 'no reason given'}`,
+          );
+        }
+        if (startTime < exEnd && endTime > exStart) {
+          throw new BadRequestException(
+            `Requested slot overlaps with a blocked period (${exStart}–${exEnd}): ${exception.reason ?? 'no reason given'}`,
+          );
+        }
+      } else {
+        // Enable exception — only this window is available
+        if (exStart && exEnd) {
+          if (startTime < exStart || endTime > exEnd) {
+            throw new BadRequestException(
+              `Court is only available ${exStart}–${exEnd} on this date`,
+            );
+          }
+          return;
+        }
+      }
+    }
+
+    // Only partial-block exceptions were found; still validate against availability rules
+    await this.checkAvailabilityRules(businessId, courtId, dayOfWeek, startTime, endTime);
+  }
+
+  private async checkAvailabilityRules(
+    businessId: string,
+    courtId: string,
+    dayOfWeek: number,
+    startTime: string,
+    endTime: string,
+  ): Promise<void> {
+    const rules = await this.availabilityRuleModel.findAll({
+      where: { businessId, dayOfWeek, isActive: true },
+      include: [{
+        model: Court,
+        as: 'courts',
+        where: { id: courtId },
+        through: { attributes: [] },
+        required: true,
+      }],
+    });
+
+    if (rules.length === 0) {
+      throw new BadRequestException(
+        'No availability rules found for this court on this day',
+      );
+    }
+
+    const slotFits = rules.some((rule) => {
+      const ruleStart = this.normalizeTime(rule.startTime);
+      const ruleEnd = this.normalizeTime(rule.endTime);
+      return startTime >= ruleStart && endTime <= ruleEnd;
+    });
+
+    if (!slotFits) {
+      throw new BadRequestException(
+        'Requested time slot is outside available hours',
+      );
+    }
+  }
+
+  private async checkNoOverlap(
+    courtId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    transaction?: Transaction,
+  ): Promise<void> {
+    const overlapping = await this.bookingModel.findOne({
+      where: {
+        courtId,
+        date,
+        status: BookingStatus.ACTIVE,
+        startTime: { [Op.lt]: endTime },
+        endTime: { [Op.gt]: startTime },
+      },
+      transaction,
+    });
+
+    if (overlapping) {
+      throw new ConflictException(
+        'This time slot overlaps with an existing booking',
+      );
+    }
+  }
+
+  private isSerializationError(err: unknown): boolean {
+    const e = err as { parent?: { code?: string }; original?: { code?: string } };
+    return e?.parent?.code === '40001' || e?.original?.code === '40001';
+  }
+
+  private validateBooker(userId: string | undefined, dto: CreateBookingDto): void {
+    if (userId) return;
+
+    const hasContact = dto.guestPhone || dto.guestEmail;
+    if (!dto.guestName || !hasContact) {
+      throw new BadRequestException(
+        'Guest bookings require guestName and at least guestPhone or guestEmail',
+      );
+    }
+  }
+
+  private validateNotInPast(date: string): void {
+    const today = new Date().toISOString().split('T')[0];
+    if (date < today) {
+      throw new BadRequestException('Cannot book a date in the past');
+    }
+  }
+
+  private validateNoMidnightCrossing(startTime: string, endTime: string): void {
+    if (endTime <= startTime) {
+      throw new BadRequestException(
+        'Booking slot cannot cross midnight (BR-023)',
+      );
+    }
   }
 
   private addMinutesToTime(time: string, minutes: number): string {
