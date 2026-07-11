@@ -154,6 +154,7 @@ Represents a rentable space (soccer field, paddle court, tennis court, etc.).
   hasLighting: boolean
   pricePerHour?: decimal
   description?: string
+  isActive: boolean (allows disabling without deleting)
   createdAt: timestamp
   updatedAt: timestamp
 }

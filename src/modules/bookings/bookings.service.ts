@@ -118,6 +118,20 @@ export class BookingsService {
     });
   }
 
+  async findAllByUser(userId: string): Promise<Booking[]> {
+    return this.bookingModel.findAll({
+      where: { userId },
+      include: [
+        { model: Court, as: 'court' },
+        { model: Business, as: 'business' },
+      ],
+      order: [
+        ['date', 'DESC'],
+        ['startTime', 'DESC'],
+      ],
+    });
+  }
+
   async findOne(id: string, businessId: string): Promise<Booking> {
     const booking = await this.bookingModel.findOne({
       where: { id, businessId },
@@ -146,6 +160,37 @@ export class BookingsService {
     return booking;
   }
 
+  async findOneForUser(id: string, userId: string): Promise<Booking> {
+    const booking = await this.bookingModel.findOne({
+      where: { id, userId },
+      include: [
+        { model: Court, as: 'court' },
+        { model: Business, as: 'business' },
+      ],
+    });
+
+    if (!booking) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    return booking;
+  }
+
+  async cancelForUser(id: string, userId: string): Promise<Booking> {
+    const booking = await this.findOneForUser(id, userId);
+
+    if (booking.status === BookingStatus.CANCELLED) {
+      throw new BadRequestException('Booking is already cancelled');
+    }
+
+    await booking.update({
+      status: BookingStatus.CANCELLED,
+      cancelledAt: new Date(),
+    });
+
+    return booking;
+  }
+
   async getAvailableSlots(
     businessId: string,
     courtId: string,
@@ -156,7 +201,7 @@ export class BookingsService {
     slotDuration: number;
     availableSlots: { startTime: string; endTime: string }[];
   }> {
-    const today = new Date().toISOString().split('T')[0];
+    const today = this.todayLocalISO();
     if (date < today) {
       throw new BadRequestException('Cannot check availability for a past date');
     }
@@ -421,10 +466,22 @@ export class BookingsService {
   }
 
   private validateNotInPast(date: string): void {
-    const today = new Date().toISOString().split('T')[0];
+    const today = this.todayLocalISO();
     if (date < today) {
       throw new BadRequestException('Cannot book a date in the past');
     }
+  }
+
+  // Uses the server's local calendar date rather than UTC — date + 'T12:00:00'
+  // elsewhere in this service is parsed as local time too, and comparing a
+  // UTC "today" against that (BR-023/EC date checks) rejects the current day
+  // as "past" for part of the evening in UTC-negative timezones (e.g. ART).
+  private todayLocalISO(): string {
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
   }
 
   private validateNoMidnightCrossing(startTime: string, endTime: string): void {

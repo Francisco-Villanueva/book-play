@@ -11,6 +11,7 @@ export const CourtSchema = z.object({
   hasLighting: z.boolean(),
   pricePerHour: z.number().optional(),
   description: z.string().optional(),
+  isActive: z.boolean(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

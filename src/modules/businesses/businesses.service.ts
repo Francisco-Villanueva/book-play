@@ -17,10 +17,17 @@ import { CourtException } from '../exception-rules/entities/court-exception.mode
 import {
   BUSINESS_REPOSITORY,
   BUSINESS_USER_REPOSITORY,
+  SUBSCRIPTION_REPOSITORY,
+  BUSINESS_FEATURE_REPOSITORY,
 } from '../database/constants/repositories.constants';
-import { BusinessRole } from '../../common/enums';
+import { BusinessRole, FeatureEnabledBy, SubscriptionStatus } from '../../common/enums';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
+import { Subscription } from '../subscriptions/entities/subscription.model';
+import { BusinessFeature } from '../subscriptions/entities/business-feature.model';
+import { TRIAL_FEATURE_KEYS } from '../subscriptions/constants/trial-features.constant';
+
+const TRIAL_DURATION_DAYS = 30;
 
 @Injectable()
 export class BusinessesService {
@@ -29,6 +36,10 @@ export class BusinessesService {
     private readonly businessModel: typeof Business,
     @Inject(BUSINESS_USER_REPOSITORY)
     private readonly businessUserModel: typeof BusinessUser,
+    @Inject(SUBSCRIPTION_REPOSITORY)
+    private readonly subscriptionModel: typeof Subscription,
+    @Inject(BUSINESS_FEATURE_REPOSITORY)
+    private readonly businessFeatureModel: typeof BusinessFeature,
     @Inject('SEQUELIZE')
     private readonly sequelize: Sequelize,
   ) {}
@@ -49,6 +60,39 @@ export class BusinessesService {
     return await this.businessModel.findByPk(businessId);
   }
 
+  async searchPublicBusinesses(q?: string): Promise<
+    {
+      id: string;
+      name: string;
+      address: string | null;
+      description: string | null;
+      courtsCount: number;
+      sports: string[];
+    }[]
+  > {
+    const businesses = await this.businessModel.findAll({
+      where: q ? { name: { [Op.iLike]: `%${q}%` } } : {},
+      include: [{ model: Court, as: 'courts', attributes: ['id', 'sportType'], required: false }],
+      order: [['name', 'ASC']],
+      limit: 50,
+    });
+
+    return businesses.map((b) => {
+      const raw = b.toJSON() as Business & { courts?: Court[] };
+      const courts = raw.courts ?? [];
+      const sports = [...new Set(courts.map((c) => c.sportType).filter(Boolean))];
+
+      return {
+        id: raw.id,
+        name: raw.name,
+        address: raw.address ?? null,
+        description: raw.description ?? null,
+        courtsCount: courts.length,
+        sports,
+      };
+    });
+  }
+
   async createBusiness(
     dto: CreateBusinessDto,
     userId: string,
@@ -67,6 +111,28 @@ export class BusinessesService {
           userId,
           role: BusinessRole.OWNER,
         },
+        { transaction },
+      );
+
+      const now = new Date();
+      const trialEndsAt = new Date(now.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000);
+      await this.subscriptionModel.create(
+        {
+          businessId: business.id,
+          status: SubscriptionStatus.TRIALING,
+          trialStartedAt: now,
+          trialEndsAt,
+        },
+        { transaction },
+      );
+      await this.businessFeatureModel.bulkCreate(
+        TRIAL_FEATURE_KEYS.map((featureKey) => ({
+          businessId: business.id,
+          featureKey,
+          isEnabled: true,
+          enabledBy: FeatureEnabledBy.PLAN,
+          enabledAt: now,
+        })),
         { transaction },
       );
 

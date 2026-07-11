@@ -9,6 +9,7 @@ import {
   Param,
   Patch,
   Post,
+  Query,
   Request,
   UseGuards,
 } from '@nestjs/common';
@@ -38,6 +39,13 @@ export class BusinessesController {
   @ApiResponse({ status: 200, description: 'List of businesses' })
   async findAll(@Request() req: any) {
     return this.businessesService.findAllBusinesses(req.user.id);
+  }
+
+  @Get('search')
+  @ApiOperation({ summary: 'Public search of businesses to book at (no auth required)' })
+  @ApiResponse({ status: 200, description: 'Matching businesses' })
+  async search(@Query('q') q?: string) {
+    return this.businessesService.searchPublicBusinesses(q);
   }
 
   @UseGuards(JwtAuthGuard)

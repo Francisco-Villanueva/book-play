@@ -11,6 +11,9 @@ import { Court } from '../../courts/entities/court.model';
 import { AvailabilityRule } from '../../availability-rules/entities/availability-rule.model';
 import { ExceptionRule } from '../../exception-rules/entities/exception-rule.model';
 import { Booking } from '../../bookings/entities/booking.model';
+import { Subscription } from '../../subscriptions/entities/subscription.model';
+import { BusinessFeature } from '../../subscriptions/entities/business-feature.model';
+import { Payment } from '../../subscriptions/entities/payment.model';
 
 @Table({ tableName: 'businesses', underscored: true })
 export class Business extends Model {
@@ -47,4 +50,7 @@ export class Business extends Model {
   declare availabilityRules: AvailabilityRule[];
   declare exceptionRules: ExceptionRule[];
   declare bookings: Booking[];
+  declare subscription: Subscription;
+  declare features: BusinessFeature[];
+  declare payments: Payment[];
 }

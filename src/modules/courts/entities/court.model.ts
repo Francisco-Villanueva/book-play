@@ -49,6 +49,10 @@ export class Court extends Model {
   @Column(DataType.TEXT)
   declare description: string;
 
+  @Default(true)
+  @Column({ type: DataType.BOOLEAN, allowNull: false, field: 'is_active' })
+  declare isActive: boolean;
+
   declare business: Business;
   declare bookings: Booking[];
   declare availabilityRules: AvailabilityRule[];

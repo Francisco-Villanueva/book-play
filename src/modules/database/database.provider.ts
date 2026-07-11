@@ -8,6 +8,10 @@ import { AvailabilityRule } from '../availability-rules/entities/availability-ru
 import { CourtAvailability } from '../availability-rules/entities/court-availability.model';
 import { ExceptionRule } from '../exception-rules/entities/exception-rule.model';
 import { CourtException } from '../exception-rules/entities/court-exception.model';
+import { Plan } from '../plans/entities/plan.model';
+import { Subscription } from '../subscriptions/entities/subscription.model';
+import { BusinessFeature } from '../subscriptions/entities/business-feature.model';
+import { Payment } from '../subscriptions/entities/payment.model';
 
 function defineAssociations() {
   // User
@@ -81,6 +85,20 @@ function defineAssociations() {
     otherKey: 'courtId',
     as: 'courts',
   });
+
+  // Subscription / Plan / BusinessFeature / Payment
+  Business.hasOne(Subscription, { foreignKey: 'businessId', as: 'subscription' });
+  Subscription.belongsTo(Business, { foreignKey: 'businessId', as: 'business' });
+  Plan.hasMany(Subscription, { foreignKey: 'planId', as: 'subscriptions' });
+  Subscription.belongsTo(Plan, { foreignKey: 'planId', as: 'plan' });
+  Subscription.hasMany(Payment, { foreignKey: 'subscriptionId', as: 'payments' });
+  Payment.belongsTo(Subscription, { foreignKey: 'subscriptionId', as: 'subscription' });
+  Business.hasMany(Payment, { foreignKey: 'businessId', as: 'payments' });
+  Payment.belongsTo(Business, { foreignKey: 'businessId', as: 'business' });
+  Plan.hasMany(Payment, { foreignKey: 'planId', as: 'payments' });
+  Payment.belongsTo(Plan, { foreignKey: 'planId', as: 'plan' });
+  Business.hasMany(BusinessFeature, { foreignKey: 'businessId', as: 'features' });
+  BusinessFeature.belongsTo(Business, { foreignKey: 'businessId', as: 'business' });
 }
 
 export const databaseProviders = [
@@ -103,6 +121,10 @@ export const databaseProviders = [
         CourtAvailability,
         ExceptionRule,
         CourtException,
+        Plan,
+        Subscription,
+        BusinessFeature,
+        Payment,
       ]);
 
       defineAssociations();

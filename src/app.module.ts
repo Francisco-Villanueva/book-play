@@ -1,5 +1,6 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
+import { ScheduleModule } from '@nestjs/schedule';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
@@ -12,11 +13,15 @@ import { ExceptionRulesModule } from './modules/exception-rules/exception-rules.
 import { BusinessUsersModule } from './modules/business-users/business-users.module';
 import { DatabaseModule } from './modules/database/database.module';
 import { MasterModule } from './modules/master/master.module';
+import { MercadoPagoModule } from './modules/mercadopago/mercadopago.module';
+import { PlansModule } from './modules/plans/plans.module';
+import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
 
 @Module({
   imports: [
     DatabaseModule,
     ConfigModule.forRoot({ isGlobal: true }),
+    ScheduleModule.forRoot(),
     AuthModule,
     UsersModule,
     BusinessesModule,
@@ -26,6 +31,9 @@ import { MasterModule } from './modules/master/master.module';
     AvailabilityRulesModule,
     ExceptionRulesModule,
     MasterModule,
+    MercadoPagoModule,
+    PlansModule,
+    SubscriptionsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
