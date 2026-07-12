@@ -12,7 +12,6 @@ import { Plan } from './entities/plan.model';
 import { Subscription } from '../subscriptions/entities/subscription.model';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
-import { MercadoPagoService } from '../mercadopago/mercadopago.service';
 
 @Injectable()
 export class PlansService {
@@ -21,7 +20,6 @@ export class PlansService {
     private readonly planModel: typeof Plan,
     @Inject(SUBSCRIPTION_REPOSITORY)
     private readonly subscriptionModel: typeof Subscription,
-    private readonly mercadoPagoService: MercadoPagoService,
   ) {}
 
   async findPublic(): Promise<Plan[]> {
@@ -31,8 +29,12 @@ export class PlansService {
     });
   }
 
-  async findAllForMaster(): Promise<Array<Plan & { subscribersCount: number }>> {
-    const plans = await this.planModel.findAll({ order: [['sortOrder', 'ASC']] });
+  async findAllForMaster(): Promise<
+    Array<Plan & { subscribersCount: number }>
+  > {
+    const plans = await this.planModel.findAll({
+      order: [['sortOrder', 'ASC']],
+    });
     const counts = await this.subscriptionModel.findAll({
       attributes: ['planId'],
       where: { planId: plans.map((p) => p.id) },
@@ -40,7 +42,9 @@ export class PlansService {
     });
 
     return plans.map((plan) => {
-      const subscribersCount = counts.filter((c) => c.planId === plan.id).length;
+      const subscribersCount = counts.filter(
+        (c) => c.planId === plan.id,
+      ).length;
       return Object.assign(plan.toJSON(), { subscribersCount }) as Plan & {
         subscribersCount: number;
       };
@@ -65,17 +69,6 @@ export class PlansService {
 
   async update(id: string, dto: UpdatePlanDto): Promise<Plan> {
     const plan = await this.findOne(id);
-
-    if (
-      dto.priceArs !== undefined &&
-      dto.priceArs !== plan.priceArs &&
-      plan.mpPreapprovalPlanId
-    ) {
-      throw new BadRequestException(
-        'No se puede cambiar el precio de un plan ya sincronizado con Mercado Pago. Archivalo y creá uno nuevo.',
-      );
-    }
-
     await plan.update(dto);
     return plan;
   }
@@ -89,16 +82,6 @@ export class PlansService {
   async restore(id: string): Promise<Plan> {
     const plan = await this.findOne(id);
     await plan.update({ isArchived: false });
-    return plan;
-  }
-
-  async syncWithMercadoPago(id: string): Promise<Plan> {
-    const plan = await this.findOne(id);
-    if (plan.mpPreapprovalPlanId) {
-      return plan;
-    }
-    const mpPlan = await this.mercadoPagoService.createPreApprovalPlan(plan);
-    await plan.update({ mpPreapprovalPlanId: mpPlan.id });
     return plan;
   }
 

@@ -30,8 +30,7 @@ export class WebhookController {
     }),
   )
   @ApiOperation({
-    summary:
-      'Mercado Pago webhook (subscription_preapproval, subscription_authorized_payment)',
+    summary: 'Mercado Pago webhook (payment)',
   })
   async handle(
     @Query('data.id') dataIdQuery: string | undefined,

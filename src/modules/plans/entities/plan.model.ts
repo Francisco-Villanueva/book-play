@@ -38,7 +38,11 @@ export class Plan extends Model {
   declare featureKeys: string[];
 
   @Default(true)
-  @Column({ type: DataType.BOOLEAN, allowNull: false, field: 'is_publicly_visible' })
+  @Column({
+    type: DataType.BOOLEAN,
+    allowNull: false,
+    field: 'is_publicly_visible',
+  })
   declare isPubliclyVisible: boolean;
 
   @Default(false)
@@ -48,7 +52,4 @@ export class Plan extends Model {
   @Default(0)
   @Column({ type: DataType.INTEGER, allowNull: false, field: 'sort_order' })
   declare sortOrder: number;
-
-  @Column({ type: DataType.STRING, field: 'mp_preapproval_plan_id' })
-  declare mpPreapprovalPlanId: string | null;
 }

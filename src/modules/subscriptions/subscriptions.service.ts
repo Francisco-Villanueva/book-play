@@ -2,7 +2,6 @@ import {
   BadRequestException,
   Inject,
   Injectable,
-  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -17,8 +16,6 @@ import { MercadoPagoService } from '../mercadopago/mercadopago.service';
 
 @Injectable()
 export class SubscriptionsService {
-  private readonly logger = new Logger(SubscriptionsService.name);
-
   constructor(
     @Inject(SUBSCRIPTION_REPOSITORY)
     private readonly subscriptionModel: typeof Subscription,
@@ -61,68 +58,37 @@ export class SubscriptionsService {
       throw new NotFoundException('Plan not found');
     }
 
-    let mpPreapprovalPlanId = plan.mpPreapprovalPlanId;
-    if (!mpPreapprovalPlanId) {
-      const mpPlan = await this.mercadoPagoService.createPreApprovalPlan(plan);
-      mpPreapprovalPlanId = mpPlan.id ?? null;
-      await plan.update({ mpPreapprovalPlanId });
-    }
-
-    // createCheckout is also the entry point for upgrade/downgrade (not just the first
-    // subscription) — cancel any preapproval already billing this business first, or
-    // both preapprovals keep charging independently once the new one is authorized.
-    if (subscription.mpPreapprovalId) {
-      try {
-        await this.mercadoPagoService.cancelPreApproval(
-          subscription.mpPreapprovalId,
-        );
-      } catch (error) {
-        this.logger.warn(
-          `Could not cancel previous preapproval ${subscription.mpPreapprovalId} for business ${businessId}: ${error instanceof Error ? error.message : error}`,
-        );
-      }
-    }
-
-    const preapproval = await this.mercadoPagoService.createPreApproval({
-      preapprovalPlanId: mpPreapprovalPlanId as string,
+    // Charging happens once per period, on demand — the webhook activates the
+    // subscription for the plan/amount encoded here, not whatever is in the DB
+    // by the time the payment is confirmed (price could have changed since).
+    const preference = await this.mercadoPagoService.createPreference({
+      title: plan.name,
+      amount: plan.priceArs,
+      externalReference: `${subscription.id}:${plan.id}`,
       payerEmail,
-      externalReference: subscription.id,
-      backUrl: this.mercadoPagoService.buildBackUrl(
-        `/admin/${businessId}/upgrade/confirm`,
-      ),
+      backUrlPath: `/admin/${businessId}/upgrade/confirm`,
     });
 
-    if (!preapproval.init_point) {
+    if (!preference.init_point) {
       throw new BadRequestException(
         'Mercado Pago no devolvió una URL de checkout',
       );
     }
 
-    await subscription.update({
-      mpPreapprovalId: preapproval.id,
-      mpPayerEmail: payerEmail,
-    });
-
-    return { checkoutUrl: preapproval.init_point };
+    return { checkoutUrl: preference.init_point };
   }
 
   async cancel(businessId: string): Promise<Subscription> {
     const subscription = await this.findByBusiness(businessId);
 
-    if (subscription.mpPreapprovalId) {
-      // MP's `cancelled` status is terminal (cannot be un-cancelled) — cancelling
-      // here stops future charges immediately, but the business keeps access
-      // (status stays as-is) until currentPeriodEnd, enforced by trial-expiry.cron.
-      await this.mercadoPagoService.cancelPreApproval(
-        subscription.mpPreapprovalId,
-      );
-    }
-
+    // Nothing to cancel on Mercado Pago's side — there's no recurring charge
+    // running there. Access is kept until currentPeriodEnd, enforced by
+    // trial-expiry.cron; renewing again just means a fresh checkout.
     await subscription.update({ cancelledAt: new Date() });
     return subscription;
   }
 
-  async reactivate(businessId: string): Promise<{ checkoutUrl: string }> {
+  async reactivate(businessId: string): Promise<Subscription> {
     const subscription = await this.findByBusiness(businessId);
 
     if (!subscription.cancelledAt) {
@@ -136,38 +102,8 @@ export class SubscriptionsService {
         'El período pago ya venció, iniciá un nuevo checkout',
       );
     }
-    if (!subscription.planId || !subscription.mpPayerEmail) {
-      throw new BadRequestException(
-        'No hay datos suficientes para reactivar automáticamente',
-      );
-    }
 
-    const plan = await this.planModel.findByPk(subscription.planId);
-    if (!plan?.mpPreapprovalPlanId) {
-      throw new NotFoundException('Plan not found');
-    }
-
-    // MP's `cancelled` status is terminal — resuming billing means authorizing
-    // a brand new preapproval (another redirect), not reviving the old one.
-    const preapproval = await this.mercadoPagoService.createPreApproval({
-      preapprovalPlanId: plan.mpPreapprovalPlanId,
-      payerEmail: subscription.mpPayerEmail,
-      externalReference: subscription.id,
-      backUrl: this.mercadoPagoService.buildBackUrl(
-        `/admin/${businessId}/upgrade/confirm`,
-      ),
-    });
-
-    if (!preapproval.init_point) {
-      throw new BadRequestException(
-        'Mercado Pago no devolvió una URL de checkout',
-      );
-    }
-
-    await subscription.update({
-      mpPreapprovalId: preapproval.id,
-      cancelledAt: null,
-    });
-    return { checkoutUrl: preapproval.init_point };
+    await subscription.update({ cancelledAt: null });
+    return subscription;
   }
 }

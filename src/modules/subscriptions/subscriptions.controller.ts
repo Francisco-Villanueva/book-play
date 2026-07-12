@@ -82,11 +82,11 @@ export class SubscriptionsController {
   @BusinessRoles(BusinessRole.OWNER)
   @ApiBearerAuth()
   @ApiOperation({
-    summary: 'Reactivate a cancelled subscription before period end',
+    summary: 'Undo a pending cancellation before period end',
   })
   @ApiResponse({
     status: 200,
-    description: 'New checkout URL to re-authorize billing',
+    description: 'Subscription with the cancellation cleared',
   })
   async reactivate(@Param('businessId') businessId: string) {
     return this.subscriptionsService.reactivate(businessId);

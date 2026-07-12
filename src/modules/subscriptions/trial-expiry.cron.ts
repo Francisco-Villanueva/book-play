@@ -23,8 +23,32 @@ export class TrialExpiryCron {
     const now = new Date();
 
     await this.suspendExpiredTrials(now);
+    await this.markUnrenewedAsPastDue(now);
     await this.suspendPastDueOverGrace(now);
     await this.finalizeCancelledAtPeriodEnd(now);
+  }
+
+  // Checkout Pro is a one-off charge, not a recurring debit managed by Mercado
+  // Pago — nothing on their side tells us a renewal was skipped, so this has to
+  // detect it: an ACTIVE, non-cancelled subscription past its currentPeriodEnd
+  // means the business didn't check out again for the next period.
+  private async markUnrenewedAsPastDue(now: Date): Promise<void> {
+    const unrenewed = await this.subscriptionModel.findAll({
+      where: {
+        status: SubscriptionStatus.ACTIVE,
+        cancelledAt: null,
+        currentPeriodEnd: { [Op.lte]: now },
+      },
+    });
+    for (const subscription of unrenewed) {
+      await subscription.update({
+        status: SubscriptionStatus.PAST_DUE,
+        pastDueAt: now,
+      });
+      this.logger.log(
+        `Period ended without renewal, marked past-due for business ${subscription.businessId}`,
+      );
+    }
   }
 
   private async suspendExpiredTrials(now: Date): Promise<void> {

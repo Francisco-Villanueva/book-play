@@ -2,68 +2,65 @@ import { Injectable } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
   MercadoPagoConfig,
-  PreApproval,
-  PreApprovalPlan,
+  Preference,
   WebhookSignatureValidator,
 } from 'mercadopago';
-import type { PreApprovalResponse } from 'mercadopago/dist/clients/preApproval/commonTypes';
-import type { PreApprovalUpdateResponse } from 'mercadopago/dist/clients/preApproval/update/types';
-import type { PreApprovalPlanResponse } from 'mercadopago/dist/clients/preApprovalPlan/commonTypes';
-import { Plan } from '../plans/entities/plan.model';
+import type { PreferenceResponse } from 'mercadopago/dist/clients/preference/commonTypes';
 
-export interface AuthorizedPaymentResponse {
-  id: string;
-  preapproval_id?: string;
+export interface MercadoPagoPaymentResponse {
+  id: number;
   status?: string;
+  status_detail?: string;
   transaction_amount?: number;
   date_created?: string;
+  date_approved?: string;
+  external_reference?: string;
 }
 
 @Injectable()
 export class MercadoPagoService {
   private readonly client: MercadoPagoConfig;
-  private readonly preApprovalPlanClient: PreApprovalPlan;
-  private readonly preApprovalClient: PreApproval;
+  private readonly preferenceClient: Preference;
   private readonly accessToken: string;
   private readonly webhookSecret: string;
   private readonly backUrl: string;
 
   constructor(private readonly configService: ConfigService) {
-    this.accessToken = this.configService.get<string>('mercadoPago.accessToken') ?? '';
-    this.webhookSecret = this.configService.get<string>('mercadoPago.webhookSecret') ?? '';
+    this.accessToken =
+      this.configService.get<string>('mercadoPago.accessToken') ?? '';
+    this.webhookSecret =
+      this.configService.get<string>('mercadoPago.webhookSecret') ?? '';
     this.backUrl = this.configService.get<string>('mercadoPago.backUrl') ?? '';
     this.client = new MercadoPagoConfig({ accessToken: this.accessToken });
-    this.preApprovalPlanClient = new PreApprovalPlan(this.client);
-    this.preApprovalClient = new PreApproval(this.client);
+    this.preferenceClient = new Preference(this.client);
   }
 
-  async createPreApprovalPlan(plan: Plan): Promise<PreApprovalPlanResponse> {
-    return this.preApprovalPlanClient.create({
-      body: {
-        reason: plan.name,
-        back_url: this.backUrl,
-        auto_recurring: {
-          frequency: 1,
-          frequency_type: 'months',
-          transaction_amount: plan.priceArs,
-          currency_id: 'ARS',
-        },
-      },
-    });
-  }
-
-  async createPreApproval(params: {
-    preapprovalPlanId: string;
-    payerEmail: string;
+  async createPreference(params: {
+    title: string;
+    amount: number;
     externalReference: string;
-    backUrl?: string;
-  }): Promise<PreApprovalResponse> {
-    return this.preApprovalClient.create({
+    payerEmail?: string;
+    backUrlPath: string;
+  }): Promise<PreferenceResponse> {
+    return this.preferenceClient.create({
       body: {
-        preapproval_plan_id: params.preapprovalPlanId,
-        payer_email: params.payerEmail,
+        items: [
+          {
+            id: params.externalReference,
+            title: params.title,
+            quantity: 1,
+            unit_price: params.amount,
+            currency_id: 'ARS',
+          },
+        ],
+        payer: params.payerEmail ? { email: params.payerEmail } : undefined,
         external_reference: params.externalReference,
-        back_url: params.backUrl ?? this.backUrl,
+        back_urls: {
+          success: this.buildBackUrl(params.backUrlPath),
+          failure: this.buildBackUrl(params.backUrlPath),
+          pending: this.buildBackUrl(params.backUrlPath),
+        },
+        auto_return: 'approved',
       },
     });
   }
@@ -72,22 +69,17 @@ export class MercadoPagoService {
     return `${this.backUrl}${path}`;
   }
 
-  async getPreApproval(id: string): Promise<PreApprovalResponse> {
-    return this.preApprovalClient.get({ id });
-  }
-
-  async cancelPreApproval(id: string): Promise<PreApprovalUpdateResponse> {
-    return this.preApprovalClient.update({ id, body: { status: 'cancelled' } });
-  }
-
-  async getAuthorizedPayment(id: string): Promise<AuthorizedPaymentResponse> {
-    const response = await fetch(`https://api.mercadopago.com/authorized_payments/${id}`, {
-      headers: { Authorization: `Bearer ${this.accessToken}` },
-    });
+  async getPayment(id: string): Promise<MercadoPagoPaymentResponse> {
+    const response = await fetch(
+      `https://api.mercadopago.com/v1/payments/${id}`,
+      {
+        headers: { Authorization: `Bearer ${this.accessToken}` },
+      },
+    );
     if (!response.ok) {
-      throw new Error(`Mercado Pago authorized_payments lookup failed: ${response.status}`);
+      throw new Error(`Mercado Pago payment lookup failed: ${response.status}`);
     }
-    return response.json() as Promise<AuthorizedPaymentResponse>;
+    return response.json() as Promise<MercadoPagoPaymentResponse>;
   }
 
   verifyWebhookSignature(params: {

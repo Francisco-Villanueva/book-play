@@ -10,7 +10,12 @@ import {
   Post,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { PlansService } from './plans.service';
 import { CreatePlanDto } from './dto/create-plan.dto';
 import { UpdatePlanDto } from './dto/update-plan.dto';
@@ -49,7 +54,10 @@ export class MasterPlansController {
   @Patch(':planId')
   @ApiOperation({ summary: 'Update a plan (MASTER only)' })
   @ApiResponse({ status: 200, description: 'Plan updated' })
-  @ApiResponse({ status: 400, description: 'Cannot change price of an MP-synced plan' })
+  @ApiResponse({
+    status: 400,
+    description: 'Cannot change price of an MP-synced plan',
+  })
   async update(@Param('planId') planId: string, @Body() dto: UpdatePlanDto) {
     return this.plansService.update(planId, dto);
   }
@@ -66,13 +74,6 @@ export class MasterPlansController {
   @ApiResponse({ status: 200, description: 'Plan restored' })
   async restore(@Param('planId') planId: string) {
     return this.plansService.restore(planId);
-  }
-
-  @Post(':planId/sync-mercadopago')
-  @ApiOperation({ summary: 'Sync a plan with Mercado Pago (MASTER only)' })
-  @ApiResponse({ status: 200, description: 'Plan synced with mpPreapprovalPlanId set' })
-  async syncMercadoPago(@Param('planId') planId: string) {
-    return this.plansService.syncWithMercadoPago(planId);
   }
 
   @Delete(':planId')

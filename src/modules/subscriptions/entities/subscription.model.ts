@@ -38,12 +38,6 @@ export class Subscription extends Model {
   })
   declare status: SubscriptionStatus;
 
-  @Column({ type: DataType.STRING, field: 'mp_payer_email' })
-  declare mpPayerEmail: string | null;
-
-  @Column({ type: DataType.STRING, field: 'mp_preapproval_id' })
-  declare mpPreapprovalId: string | null;
-
   @Column({ type: DataType.DATE, allowNull: false, field: 'trial_started_at' })
   declare trialStartedAt: Date;
 
