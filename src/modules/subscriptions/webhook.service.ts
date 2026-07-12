@@ -42,6 +42,9 @@ export class WebhookService {
   ) {}
 
   async process(params: { type: string; dataId: string }): Promise<void> {
+    this.logger.log(
+      `Webhook passed signature check: type=${params.type} dataId=${params.dataId}`,
+    );
     if (params.type === 'payment') {
       await this.handlePayment(params.dataId);
     }
@@ -142,6 +145,10 @@ export class WebhookService {
           subscription.businessId,
           plan,
           transaction,
+        );
+
+        this.logger.log(
+          `Payment ${paymentId} approved, subscription ${subscription.id} active until ${currentPeriodEnd.toISOString()}`,
         );
       });
     } catch (error) {
