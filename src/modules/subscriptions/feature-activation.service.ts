@@ -25,9 +25,14 @@ export class FeatureActivationService {
     });
 
     for (const featureKey of featureKeys) {
-      const existing = existingPlanFeatures.find((f) => f.featureKey === featureKey);
+      const existing = existingPlanFeatures.find(
+        (f) => f.featureKey === featureKey,
+      );
       if (existing) {
-        await existing.update({ isEnabled: true, disabledAt: null }, { transaction });
+        await existing.update(
+          { isEnabled: true, disabledAt: null },
+          { transaction },
+        );
       } else {
         await this.businessFeatureModel.create(
           {
@@ -43,17 +48,29 @@ export class FeatureActivationService {
     }
 
     // Disable any PLAN-granted features not in the new set (e.g. downgrade)
-    const toDisable = existingPlanFeatures.filter((f) => !featureKeys.includes(f.featureKey));
+    const toDisable = existingPlanFeatures.filter(
+      (f) => !featureKeys.includes(f.featureKey),
+    );
     for (const feature of toDisable) {
-      await feature.update({ isEnabled: false, disabledAt: now }, { transaction });
+      await feature.update(
+        { isEnabled: false, disabledAt: now },
+        { transaction },
+      );
     }
   }
 
-  async activateForPlan(businessId: string, plan: Plan, transaction?: Transaction): Promise<void> {
+  async activateForPlan(
+    businessId: string,
+    plan: Plan,
+    transaction?: Transaction,
+  ): Promise<void> {
     await this.activateFeatureKeys(businessId, plan.featureKeys, transaction);
   }
 
-  async deactivatePlanFeatures(businessId: string, transaction?: Transaction): Promise<void> {
+  async deactivatePlanFeatures(
+    businessId: string,
+    transaction?: Transaction,
+  ): Promise<void> {
     await this.businessFeatureModel.update(
       { isEnabled: false, disabledAt: new Date() },
       { where: { businessId, enabledBy: FeatureEnabledBy.PLAN }, transaction },

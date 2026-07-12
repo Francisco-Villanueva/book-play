@@ -4,7 +4,6 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Op } from 'sequelize';
 import { Sequelize } from 'sequelize-typescript';
 import {
   SUBSCRIPTION_REPOSITORY,
@@ -72,31 +71,57 @@ export class MasterBillingService {
     businessId: string,
     extendTrialDays?: number,
   ): Promise<Subscription> {
-    const subscription = await this.subscriptionModel.findOne({ where: { businessId } });
-    if (!subscription) {
-      throw new NotFoundException('Subscription not found');
-    }
-    if (subscription.status !== SubscriptionStatus.SUSPENDED) {
-      throw new BadRequestException('La suscripción no está suspendida');
-    }
-
-    if (subscription.planId) {
-      await subscription.update({ status: SubscriptionStatus.ACTIVE, suspendedAt: null });
-      const plan = await Plan.findByPk(subscription.planId);
-      if (plan) await this.featureActivationService.activateForPlan(businessId, plan);
-    } else {
-      const newTrialEnd = new Date();
-      newTrialEnd.setDate(
-        newTrialEnd.getDate() + (extendTrialDays ?? DEFAULT_TRIAL_EXTENSION_DAYS),
-      );
-      await subscription.update({
-        status: SubscriptionStatus.TRIALING,
-        suspendedAt: null,
-        trialEndsAt: newTrialEnd,
+    // Row-locked so a concurrent webhook (e.g. a late `paused`/`cancelled` notification
+    // in webhook.service.ts) can't interleave with this manual MASTER action and have
+    // one silently overwrite the other's write.
+    return this.sequelize.transaction(async (transaction) => {
+      const subscription = await this.subscriptionModel.findOne({
+        where: { businessId },
+        transaction,
+        lock: transaction.LOCK.UPDATE,
       });
-      await this.featureActivationService.activateFeatureKeys(businessId, TRIAL_FEATURE_KEYS);
-    }
+      if (!subscription) {
+        throw new NotFoundException('Subscription not found');
+      }
+      if (subscription.status !== SubscriptionStatus.SUSPENDED) {
+        throw new BadRequestException('La suscripción no está suspendida');
+      }
 
-    return subscription;
+      if (subscription.planId) {
+        await subscription.update(
+          { status: SubscriptionStatus.ACTIVE, suspendedAt: null },
+          { transaction },
+        );
+        const plan = await Plan.findByPk(subscription.planId, { transaction });
+        if (plan) {
+          await this.featureActivationService.activateForPlan(
+            businessId,
+            plan,
+            transaction,
+          );
+        }
+      } else {
+        const newTrialEnd = new Date();
+        newTrialEnd.setDate(
+          newTrialEnd.getDate() +
+            (extendTrialDays ?? DEFAULT_TRIAL_EXTENSION_DAYS),
+        );
+        await subscription.update(
+          {
+            status: SubscriptionStatus.TRIALING,
+            suspendedAt: null,
+            trialEndsAt: newTrialEnd,
+          },
+          { transaction },
+        );
+        await this.featureActivationService.activateFeatureKeys(
+          businessId,
+          TRIAL_FEATURE_KEYS,
+          transaction,
+        );
+      }
+
+      return subscription;
+    });
   }
 }

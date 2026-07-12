@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Inject,
   Injectable,
+  Logger,
   NotFoundException,
 } from '@nestjs/common';
 import {
@@ -16,6 +17,8 @@ import { MercadoPagoService } from '../mercadopago/mercadopago.service';
 
 @Injectable()
 export class SubscriptionsService {
+  private readonly logger = new Logger(SubscriptionsService.name);
+
   constructor(
     @Inject(SUBSCRIPTION_REPOSITORY)
     private readonly subscriptionModel: typeof Subscription,
@@ -65,15 +68,34 @@ export class SubscriptionsService {
       await plan.update({ mpPreapprovalPlanId });
     }
 
+    // createCheckout is also the entry point for upgrade/downgrade (not just the first
+    // subscription) — cancel any preapproval already billing this business first, or
+    // both preapprovals keep charging independently once the new one is authorized.
+    if (subscription.mpPreapprovalId) {
+      try {
+        await this.mercadoPagoService.cancelPreApproval(
+          subscription.mpPreapprovalId,
+        );
+      } catch (error) {
+        this.logger.warn(
+          `Could not cancel previous preapproval ${subscription.mpPreapprovalId} for business ${businessId}: ${error instanceof Error ? error.message : error}`,
+        );
+      }
+    }
+
     const preapproval = await this.mercadoPagoService.createPreApproval({
       preapprovalPlanId: mpPreapprovalPlanId as string,
       payerEmail,
       externalReference: subscription.id,
-      backUrl: this.mercadoPagoService.buildBackUrl(`/admin/${businessId}/upgrade/confirm`),
+      backUrl: this.mercadoPagoService.buildBackUrl(
+        `/admin/${businessId}/upgrade/confirm`,
+      ),
     });
 
     if (!preapproval.init_point) {
-      throw new BadRequestException('Mercado Pago no devolvió una URL de checkout');
+      throw new BadRequestException(
+        'Mercado Pago no devolvió una URL de checkout',
+      );
     }
 
     await subscription.update({
@@ -91,7 +113,9 @@ export class SubscriptionsService {
       // MP's `cancelled` status is terminal (cannot be un-cancelled) — cancelling
       // here stops future charges immediately, but the business keeps access
       // (status stays as-is) until currentPeriodEnd, enforced by trial-expiry.cron.
-      await this.mercadoPagoService.cancelPreApproval(subscription.mpPreapprovalId);
+      await this.mercadoPagoService.cancelPreApproval(
+        subscription.mpPreapprovalId,
+      );
     }
 
     await subscription.update({ cancelledAt: new Date() });
@@ -104,11 +128,18 @@ export class SubscriptionsService {
     if (!subscription.cancelledAt) {
       throw new BadRequestException('La suscripción no está cancelada');
     }
-    if (subscription.currentPeriodEnd && subscription.currentPeriodEnd <= new Date()) {
-      throw new BadRequestException('El período pago ya venció, iniciá un nuevo checkout');
+    if (
+      subscription.currentPeriodEnd &&
+      subscription.currentPeriodEnd <= new Date()
+    ) {
+      throw new BadRequestException(
+        'El período pago ya venció, iniciá un nuevo checkout',
+      );
     }
     if (!subscription.planId || !subscription.mpPayerEmail) {
-      throw new BadRequestException('No hay datos suficientes para reactivar automáticamente');
+      throw new BadRequestException(
+        'No hay datos suficientes para reactivar automáticamente',
+      );
     }
 
     const plan = await this.planModel.findByPk(subscription.planId);
@@ -122,11 +153,15 @@ export class SubscriptionsService {
       preapprovalPlanId: plan.mpPreapprovalPlanId,
       payerEmail: subscription.mpPayerEmail,
       externalReference: subscription.id,
-      backUrl: this.mercadoPagoService.buildBackUrl(`/admin/${businessId}/upgrade/confirm`),
+      backUrl: this.mercadoPagoService.buildBackUrl(
+        `/admin/${businessId}/upgrade/confirm`,
+      ),
     });
 
     if (!preapproval.init_point) {
-      throw new BadRequestException('Mercado Pago no devolvió una URL de checkout');
+      throw new BadRequestException(
+        'Mercado Pago no devolvió una URL de checkout',
+      );
     }
 
     await subscription.update({

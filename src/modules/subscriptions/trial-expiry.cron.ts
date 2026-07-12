@@ -29,24 +29,46 @@ export class TrialExpiryCron {
 
   private async suspendExpiredTrials(now: Date): Promise<void> {
     const expired = await this.subscriptionModel.findAll({
-      where: { status: SubscriptionStatus.TRIALING, trialEndsAt: { [Op.lte]: now } },
+      where: {
+        status: SubscriptionStatus.TRIALING,
+        trialEndsAt: { [Op.lte]: now },
+      },
     });
     for (const subscription of expired) {
-      await subscription.update({ status: SubscriptionStatus.SUSPENDED, suspendedAt: now });
-      await this.featureActivationService.deactivatePlanFeatures(subscription.businessId);
-      this.logger.log(`Trial expired, suspended business ${subscription.businessId}`);
+      await subscription.update({
+        status: SubscriptionStatus.SUSPENDED,
+        suspendedAt: now,
+      });
+      await this.featureActivationService.deactivatePlanFeatures(
+        subscription.businessId,
+      );
+      this.logger.log(
+        `Trial expired, suspended business ${subscription.businessId}`,
+      );
     }
   }
 
   private async suspendPastDueOverGrace(now: Date): Promise<void> {
-    const graceDeadline = new Date(now.getTime() - PAST_DUE_GRACE_DAYS * 24 * 60 * 60 * 1000);
+    const graceDeadline = new Date(
+      now.getTime() - PAST_DUE_GRACE_DAYS * 24 * 60 * 60 * 1000,
+    );
     const overdue = await this.subscriptionModel.findAll({
-      where: { status: SubscriptionStatus.PAST_DUE, pastDueAt: { [Op.lte]: graceDeadline } },
+      where: {
+        status: SubscriptionStatus.PAST_DUE,
+        pastDueAt: { [Op.lte]: graceDeadline },
+      },
     });
     for (const subscription of overdue) {
-      await subscription.update({ status: SubscriptionStatus.SUSPENDED, suspendedAt: now });
-      await this.featureActivationService.deactivatePlanFeatures(subscription.businessId);
-      this.logger.log(`Past-due grace period ended, suspended business ${subscription.businessId}`);
+      await subscription.update({
+        status: SubscriptionStatus.SUSPENDED,
+        suspendedAt: now,
+      });
+      await this.featureActivationService.deactivatePlanFeatures(
+        subscription.businessId,
+      );
+      this.logger.log(
+        `Past-due grace period ended, suspended business ${subscription.businessId}`,
+      );
     }
   }
 
@@ -60,8 +82,12 @@ export class TrialExpiryCron {
     });
     for (const subscription of toCancel) {
       await subscription.update({ status: SubscriptionStatus.CANCELLED });
-      await this.featureActivationService.deactivatePlanFeatures(subscription.businessId);
-      this.logger.log(`Cancellation finalized for business ${subscription.businessId}`);
+      await this.featureActivationService.deactivatePlanFeatures(
+        subscription.businessId,
+      );
+      this.logger.log(
+        `Cancellation finalized for business ${subscription.businessId}`,
+      );
     }
   }
 }

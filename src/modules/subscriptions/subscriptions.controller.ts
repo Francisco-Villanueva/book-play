@@ -1,5 +1,18 @@
-import { Body, Controller, Get, Param, Post, Request, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Request,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { SubscriptionsService } from './subscriptions.service';
 import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,7 +27,7 @@ export class SubscriptionsController {
 
   @Get()
   @UseGuards(JwtAuthGuard, BusinessRolesGuard)
-  @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
+  @BusinessRoles(BusinessRole.OWNER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get the current subscription for a business' })
   @ApiResponse({ status: 200, description: 'Subscription with plan' })
@@ -24,7 +37,7 @@ export class SubscriptionsController {
 
   @Get('payments')
   @UseGuards(JwtAuthGuard, BusinessRolesGuard)
-  @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
+  @BusinessRoles(BusinessRole.OWNER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'List payment history for a business' })
   @ApiResponse({ status: 200, description: 'List of payments' })
@@ -36,21 +49,29 @@ export class SubscriptionsController {
   @UseGuards(JwtAuthGuard, BusinessRolesGuard)
   @BusinessRoles(BusinessRole.OWNER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Create a Mercado Pago checkout session for a paid plan' })
+  @ApiOperation({
+    summary: 'Create a Mercado Pago checkout session for a paid plan',
+  })
   @ApiResponse({ status: 200, description: 'Checkout URL' })
   async createCheckout(
     @Param('businessId') businessId: string,
     @Body() dto: CreateCheckoutDto,
     @Request() req: any,
   ) {
-    return this.subscriptionsService.createCheckout(businessId, dto.planId, req.user.email);
+    return this.subscriptionsService.createCheckout(
+      businessId,
+      dto.planId,
+      req.user.email,
+    );
   }
 
   @Post('cancel')
   @UseGuards(JwtAuthGuard, BusinessRolesGuard)
   @BusinessRoles(BusinessRole.OWNER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Cancel the subscription (access kept until period end)' })
+  @ApiOperation({
+    summary: 'Cancel the subscription (access kept until period end)',
+  })
   @ApiResponse({ status: 200, description: 'Subscription cancelled' })
   async cancel(@Param('businessId') businessId: string) {
     return this.subscriptionsService.cancel(businessId);
@@ -60,8 +81,13 @@ export class SubscriptionsController {
   @UseGuards(JwtAuthGuard, BusinessRolesGuard)
   @BusinessRoles(BusinessRole.OWNER)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'Reactivate a cancelled subscription before period end' })
-  @ApiResponse({ status: 200, description: 'New checkout URL to re-authorize billing' })
+  @ApiOperation({
+    summary: 'Reactivate a cancelled subscription before period end',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'New checkout URL to re-authorize billing',
+  })
   async reactivate(@Param('businessId') businessId: string) {
     return this.subscriptionsService.reactivate(businessId);
   }

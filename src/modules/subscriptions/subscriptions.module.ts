@@ -16,16 +16,22 @@ import { FeatureActivationService } from './feature-activation.service';
 import { TrialExpiryCron } from './trial-expiry.cron';
 import { MasterBillingController } from './master-billing.controller';
 import { MasterBillingService } from './master-billing.service';
+import { MercadoPagoWebhookSignatureGuard } from './guards/mercadopago-webhook-signature.guard';
 
 @Module({
   imports: [DatabaseModule, MercadoPagoModule, BusinessUsersModule],
-  controllers: [SubscriptionsController, WebhookController, MasterBillingController],
+  controllers: [
+    SubscriptionsController,
+    WebhookController,
+    MasterBillingController,
+  ],
   providers: [
     SubscriptionsService,
     WebhookService,
     FeatureActivationService,
     TrialExpiryCron,
     MasterBillingService,
+    MercadoPagoWebhookSignatureGuard,
     ...subscriptionProvider,
     ...businessFeatureProvider,
     ...paymentProvider,

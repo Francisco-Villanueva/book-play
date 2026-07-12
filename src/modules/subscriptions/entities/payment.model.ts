@@ -31,10 +31,10 @@ export class Payment extends Model {
   @Column({ type: DataType.UUID, field: 'plan_id' })
   declare planId: string | null;
 
-  @Column({ type: DataType.STRING, field: 'mp_payment_id' })
+  @Column({ type: DataType.STRING, field: 'mp_payment_id', unique: true })
   declare mpPaymentId: string | null;
 
-  @Column({ type: DataType.INTEGER, allowNull: false })
+  @Column({ type: DataType.DECIMAL(12, 2), allowNull: false })
   declare amount: number;
 
   @Column({
