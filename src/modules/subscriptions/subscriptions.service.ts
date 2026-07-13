@@ -61,12 +61,20 @@ export class SubscriptionsService {
     // Charging happens once per period, on demand — the webhook activates the
     // subscription for the plan/amount encoded here, not whatever is in the DB
     // by the time the payment is confirmed (price could have changed since).
+    //
+    // Idempotency key is stable per subscription/plan/period: retries within the
+    // same unpaid period reuse the same preference, but once a payment advances
+    // currentPeriodEnd the key rotates so the next renewal gets a fresh one.
+    const periodMarker = subscription.currentPeriodEnd
+      ? subscription.currentPeriodEnd.toISOString()
+      : 'initial';
     const preference = await this.mercadoPagoService.createPreference({
       title: plan.name,
       amount: plan.priceArs,
       externalReference: `${subscription.id}:${plan.id}`,
       payerEmail,
       backUrlPath: `/admin/${businessId}/upgrade/confirm`,
+      idempotencyKey: `checkout:${subscription.id}:${plan.id}:${periodMarker}`,
     });
 
     if (!preference.init_point) {

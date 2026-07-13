@@ -24,6 +24,7 @@ export class MercadoPagoService {
   private readonly accessToken: string;
   private readonly webhookSecret: string;
   private readonly backUrl: string;
+  private readonly webhookUrl: string;
 
   constructor(private readonly configService: ConfigService) {
     this.accessToken =
@@ -31,6 +32,8 @@ export class MercadoPagoService {
     this.webhookSecret =
       this.configService.get<string>('mercadoPago.webhookSecret') ?? '';
     this.backUrl = this.configService.get<string>('mercadoPago.backUrl') ?? '';
+    this.webhookUrl =
+      this.configService.get<string>('mercadoPago.webhookUrl') ?? '';
     this.client = new MercadoPagoConfig({ accessToken: this.accessToken });
     this.preferenceClient = new Preference(this.client);
   }
@@ -41,6 +44,7 @@ export class MercadoPagoService {
     externalReference: string;
     payerEmail?: string;
     backUrlPath: string;
+    idempotencyKey?: string;
   }): Promise<PreferenceResponse> {
     return this.preferenceClient.create({
       body: {
@@ -61,7 +65,18 @@ export class MercadoPagoService {
           pending: this.buildBackUrl(params.backUrlPath),
         },
         auto_return: 'approved',
+        // Tell Mercado Pago where to send the payment webhook per-preference, so
+        // activation doesn't silently depend on the panel's webhook config being
+        // set (and pointing at the `/api`-prefixed path).
+        ...(this.webhookUrl ? { notification_url: this.webhookUrl } : {}),
       },
+      // Idempotency guarantee from Mercado Pago's side: repeated create calls
+      // with the same key (e.g. a double-click or a retry after a network
+      // timeout) return the same preference instead of a second one that could
+      // be paid independently.
+      ...(params.idempotencyKey
+        ? { requestOptions: { idempotencyKey: params.idempotencyKey } }
+        : {}),
     });
   }
 
