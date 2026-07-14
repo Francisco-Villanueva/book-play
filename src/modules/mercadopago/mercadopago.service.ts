@@ -102,12 +102,17 @@ export class MercadoPagoService {
     xRequestId: string | string[] | undefined | null;
     dataId: string | string[] | undefined | null;
   }): void {
+    // No toleranceSeconds: Mercado Pago sends the x-signature `ts` in SECONDS,
+    // but the validator compares it against Date.now() in MILLISECONDS, so any
+    // real webhook drifts by ~10^9s and is always rejected as
+    // TimestampOutOfTolerance. The HMAC check still proves authenticity, and
+    // webhook processing is idempotent (unique mp_payment_id), so replay
+    // protection via timestamp isn't load-bearing here.
     WebhookSignatureValidator.validate({
       xSignature: params.xSignature,
       xRequestId: params.xRequestId,
       dataId: params.dataId,
       secret: this.webhookSecret,
-      toleranceSeconds: 300,
     });
   }
 }
