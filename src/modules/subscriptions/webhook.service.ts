@@ -62,6 +62,12 @@ export class WebhookService {
     }
 
     const mpPayment = await this.mercadoPagoService.getPayment(paymentId);
+    if (!mpPayment) {
+      this.logger.warn(
+        `Payment ${paymentId} not found at Mercado Pago (404), ignoring webhook`,
+      );
+      return;
+    }
 
     // external_reference is "{subscriptionId}:{planId}" — set by
     // subscriptions.service.createCheckout when the preference was created.

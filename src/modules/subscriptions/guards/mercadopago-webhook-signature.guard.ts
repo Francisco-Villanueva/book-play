@@ -5,7 +5,14 @@ import {
   Logger,
   UnauthorizedException,
 } from '@nestjs/common';
+import type { Request } from 'express';
 import { MercadoPagoService } from '../../mercadopago/mercadopago.service';
+
+interface MercadoPagoWebhookBody {
+  type?: string;
+  topic?: string;
+  data?: { id?: string };
+}
 
 // Guards run before Pipes in Nest's request lifecycle, so verifying the signature here
 // (instead of inside the controller body) guarantees it happens before the global
@@ -17,11 +24,36 @@ export class MercadoPagoWebhookSignatureGuard implements CanActivate {
   constructor(private readonly mercadoPagoService: MercadoPagoService) {}
 
   canActivate(context: ExecutionContext): boolean {
-    const request = context.switchToHttp().getRequest();
+    const request = context.switchToHttp().getRequest<Request>();
+    const body = request.body as MercadoPagoWebhookBody | undefined;
+
+    // We only act on `payment` notifications. Mercado Pago also emits `merchant_order`
+    // (and others) that carry no `data.id` and are signed over a different manifest;
+    // since we take no action on them, ACK them (200) instead of failing the signature
+    // check and making MP retry a notification we intentionally ignore.
+    const notificationType =
+      (typeof request.query['type'] === 'string'
+        ? request.query['type']
+        : undefined) ??
+      (typeof request.query['topic'] === 'string'
+        ? request.query['topic']
+        : undefined) ??
+      body?.type ??
+      body?.topic;
+    if (notificationType !== 'payment') {
+      return true;
+    }
+
+    // Mercado Pago builds its HMAC manifest from the `data.id` query param, so the
+    // signature only matches when we read the id from the same place. The body is a
+    // fallback for the legacy shape. Express (qs, allowDots off) exposes the literal
+    // key "data.id" — do NOT parse the query JSON.
+    const queryDataId = request.query['data.id'];
+    const bodyDataId = body?.data?.id;
     const dataId: string | undefined =
-      request.query?.['data.id'] ?? request.body?.data?.id;
-    const xSignature: string | undefined = request.headers['x-signature'];
-    const xRequestId: string | undefined = request.headers['x-request-id'];
+      (typeof queryDataId === 'string' ? queryDataId : undefined) ?? bodyDataId;
+    const xSignature = request.headers['x-signature'];
+    const xRequestId = request.headers['x-request-id'];
 
     try {
       this.mercadoPagoService.verifyWebhookSignature({

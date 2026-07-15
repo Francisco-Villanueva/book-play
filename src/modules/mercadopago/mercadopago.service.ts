@@ -1,6 +1,7 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import {
+  InvalidWebhookSignatureError,
   MercadoPagoConfig,
   Preference,
   WebhookSignatureValidator,
@@ -84,13 +85,20 @@ export class MercadoPagoService {
     return `${this.backUrl}${path}`;
   }
 
-  async getPayment(id: string): Promise<MercadoPagoPaymentResponse> {
+  // Returns null when the payment does not exist (404): a signed webhook can
+  // reference an id we can't fetch (e.g. the panel simulator's fake id, or a
+  // notification racing ahead of payment visibility). The caller must ACK those
+  // with 200 instead of surfacing a 500 that makes Mercado Pago retry forever.
+  async getPayment(id: string): Promise<MercadoPagoPaymentResponse | null> {
     const response = await fetch(
       `https://api.mercadopago.com/v1/payments/${id}`,
       {
         headers: { Authorization: `Bearer ${this.accessToken}` },
       },
     );
+    if (response.status === 404) {
+      return null;
+    }
     if (!response.ok) {
       throw new Error(`Mercado Pago payment lookup failed: ${response.status}`);
     }
@@ -102,17 +110,19 @@ export class MercadoPagoService {
     xRequestId: string | string[] | undefined | null;
     dataId: string | string[] | undefined | null;
   }): void {
-    // No toleranceSeconds: Mercado Pago sends the x-signature `ts` in SECONDS,
-    // but the validator compares it against Date.now() in MILLISECONDS, so any
-    // real webhook drifts by ~10^9s and is always rejected as
-    // TimestampOutOfTolerance. The HMAC check still proves authenticity, and
-    // webhook processing is idempotent (unique mp_payment_id), so replay
-    // protection via timestamp isn't load-bearing here.
-    WebhookSignatureValidator.validate({
-      xSignature: params.xSignature,
-      xRequestId: params.xRequestId,
-      dataId: params.dataId,
-      secret: this.webhookSecret,
-    });
+    try {
+      WebhookSignatureValidator.validate({
+        xSignature: params.xSignature,
+        xRequestId: params.xRequestId,
+        dataId: params.dataId,
+        secret: process.env.MP_WEBHOOK_SECRET ?? this.webhookSecret,
+      });
+    } catch (error) {
+      if (error instanceof InvalidWebhookSignatureError) {
+        throw new UnauthorizedException(
+          `[FAIL] Mercado Pago webhook signature: ${error.message}`,
+        );
+      } else throw error;
+    }
   }
 }
