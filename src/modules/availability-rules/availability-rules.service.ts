@@ -15,6 +15,7 @@ import { AvailabilityRule } from './entities/availability-rule.model';
 import { CourtAvailability } from './entities/court-availability.model';
 import { Court } from '../courts/entities/court.model';
 import { CreateAvailabilityRuleDto } from './dto/create-availability-rule.dto';
+import { CreateAvailabilityRulesBatchDto } from './dto/create-availability-rules-batch.dto';
 import { UpdateAvailabilityRuleDto } from './dto/update-availability-rule.dto';
 
 @Injectable()
@@ -57,6 +58,53 @@ export class AvailabilityRulesService {
       await transaction.commit();
 
       return this.findOne(rule.id, businessId);
+    } catch (error) {
+      await transaction.rollback();
+      throw error;
+    }
+  }
+
+  async createBatch(
+    businessId: string,
+    dto: CreateAvailabilityRulesBatchDto,
+  ): Promise<AvailabilityRule[]> {
+    const { daysOfWeek, courtIds, name, startTime, endTime } = dto;
+    const transaction = await this.sequelize.transaction();
+
+    try {
+      if (courtIds && courtIds.length > 0) {
+        await this.validateCourts(courtIds, businessId);
+      }
+
+      const rules = await this.availabilityRuleModel.bulkCreate(
+        daysOfWeek.map((dayOfWeek) => ({
+          businessId,
+          name: name ?? 'Horario',
+          dayOfWeek,
+          startTime,
+          endTime,
+        })),
+        { transaction },
+      );
+
+      if (courtIds && courtIds.length > 0) {
+        const courtAvailabilities = rules.flatMap((rule) =>
+          courtIds.map((courtId) => ({
+            courtId,
+            availabilityRuleId: rule.id,
+          })),
+        );
+        await this.courtAvailabilityModel.bulkCreate(courtAvailabilities, {
+          transaction,
+        });
+      }
+
+      await transaction.commit();
+
+      return this.availabilityRuleModel.findAll({
+        where: { id: rules.map((r) => r.id), businessId },
+        include: [{ model: this.courtModel, as: 'courts' }],
+      });
     } catch (error) {
       await transaction.rollback();
       throw error;

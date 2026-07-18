@@ -17,16 +17,27 @@ export class MasterController {
   constructor(private readonly masterService: MasterService) {}
 
   @Get('businesses')
-  @ApiOperation({ summary: 'List all businesses on the platform (MASTER only)' })
-  @ApiResponse({ status: 200, description: 'All businesses with courts and members count' })
-  @ApiResponse({ status: 403, description: 'Access restricted to MASTER administrators' })
+  @ApiOperation({
+    summary: 'List all businesses on the platform (MASTER only)',
+  })
+  @ApiResponse({
+    status: 200,
+    description: 'All businesses with courts and members count',
+  })
+  @ApiResponse({
+    status: 403,
+    description: 'Access restricted to MASTER administrators',
+  })
   async findAllBusinesses() {
     return this.masterService.findAllBusinesses();
   }
 
   @Get('businesses/:businessId')
   @ApiOperation({ summary: 'Get full detail of any business (MASTER only)' })
-  @ApiResponse({ status: 200, description: 'Business detail with courts and members' })
+  @ApiResponse({
+    status: 200,
+    description: 'Business detail with courts and members',
+  })
   @ApiResponse({ status: 404, description: 'Business not found' })
   async findBusinessById(@Param('businessId') businessId: string) {
     return this.masterService.findBusinessById(businessId);
@@ -34,7 +45,10 @@ export class MasterController {
 
   @Get('users')
   @ApiOperation({ summary: 'List all platform users (MASTER only)' })
-  @ApiResponse({ status: 200, description: 'All users with their business memberships' })
+  @ApiResponse({
+    status: 200,
+    description: 'All users with their business memberships',
+  })
   async findAllUsers() {
     return this.masterService.findAllUsers();
   }

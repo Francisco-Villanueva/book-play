@@ -20,12 +20,18 @@ import {
   SUBSCRIPTION_REPOSITORY,
   BUSINESS_FEATURE_REPOSITORY,
 } from '../database/constants/repositories.constants';
-import { BusinessRole, FeatureEnabledBy, SubscriptionStatus } from '../../common/enums';
+import {
+  BusinessRole,
+  FeatureEnabledBy,
+  SubscriptionStatus,
+} from '../../common/enums';
 import { CreateBusinessDto } from './dto/create-business.dto';
 import { UpdateBusinessDto } from './dto/update-business.dto';
 import { Subscription } from '../subscriptions/entities/subscription.model';
 import { BusinessFeature } from '../subscriptions/entities/business-feature.model';
 import { TRIAL_FEATURE_KEYS } from '../subscriptions/constants/trial-features.constant';
+import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 
 const TRIAL_DURATION_DAYS = 30;
 
@@ -42,6 +48,8 @@ export class BusinessesService {
     private readonly businessFeatureModel: typeof BusinessFeature,
     @Inject('SEQUELIZE')
     private readonly sequelize: Sequelize,
+    private readonly usersService: UsersService,
+    private readonly mailService: MailService,
   ) {}
 
   async findAllBusinesses(userId: string): Promise<Business[]> {
@@ -60,6 +68,25 @@ export class BusinessesService {
     return await this.businessModel.findByPk(businessId);
   }
 
+  async findPublicBusinessById(businessId: string): Promise<{
+    id: string;
+    name: string;
+    address: string | null;
+    description: string | null;
+  } | null> {
+    const business = await this.businessModel.findByPk(businessId, {
+      attributes: ['id', 'name', 'address', 'description'],
+    });
+    if (!business) return null;
+    const raw = business.toJSON();
+    return {
+      id: raw.id,
+      name: raw.name,
+      address: raw.address ?? null,
+      description: raw.description ?? null,
+    };
+  }
+
   async searchPublicBusinesses(q?: string): Promise<
     {
       id: string;
@@ -72,15 +99,26 @@ export class BusinessesService {
   > {
     const businesses = await this.businessModel.findAll({
       where: q ? { name: { [Op.iLike]: `%${q}%` } } : {},
-      include: [{ model: Court, as: 'courts', attributes: ['id', 'sportType'], required: false }],
+      include: [
+        {
+          model: Court,
+          as: 'courts',
+          attributes: ['id', 'sportType'],
+          required: false,
+        },
+      ],
       order: [['name', 'ASC']],
       limit: 50,
     });
 
     return businesses.map((b) => {
-      const raw = b.toJSON() as Business & { courts?: Court[] };
-      const courts = raw.courts ?? [];
-      const sports = [...new Set(courts.map((c) => c.sportType).filter(Boolean))];
+      const raw = b.toJSON();
+      const courts: { sportType: string | null }[] = raw.courts ?? [];
+      const sports = [
+        ...new Set(
+          courts.map((c) => c.sportType).filter((s): s is string => Boolean(s)),
+        ),
+      ];
 
       return {
         id: raw.id,
@@ -115,7 +153,9 @@ export class BusinessesService {
       );
 
       const now = new Date();
-      const trialEndsAt = new Date(now.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000);
+      const trialEndsAt = new Date(
+        now.getTime() + TRIAL_DURATION_DAYS * 24 * 60 * 60 * 1000,
+      );
       await this.subscriptionModel.create(
         {
           businessId: business.id,
@@ -137,6 +177,18 @@ export class BusinessesService {
       );
 
       await transaction.commit();
+
+      const owner = await this.usersService.findById(userId);
+      if (owner) {
+        void this.mailService.sendWelcomeOwner({
+          to: owner.email,
+          name: owner.name,
+          businessName: business.name,
+          trialDays: TRIAL_DURATION_DAYS,
+          businessId: business.id,
+        });
+      }
+
       return business;
     } catch (error) {
       await transaction.rollback();
@@ -149,7 +201,9 @@ export class BusinessesService {
     dto: UpdateBusinessDto,
   ): Promise<Business> {
     if (Object.keys(dto).length === 0) {
-      throw new BadRequestException('At least one field is required for update');
+      throw new BadRequestException(
+        'At least one field is required for update',
+      );
     }
 
     const business = await this.businessModel.findByPk(businessId);
@@ -192,7 +246,10 @@ export class BusinessesService {
 
       await AvailabilityRule.destroy({ where: { businessId }, transaction });
       await ExceptionRule.destroy({ where: { businessId }, transaction });
-      await this.businessUserModel.destroy({ where: { businessId }, transaction });
+      await this.businessUserModel.destroy({
+        where: { businessId },
+        transaction,
+      });
       await business.destroy({ transaction });
 
       await transaction.commit();

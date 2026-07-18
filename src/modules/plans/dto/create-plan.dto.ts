@@ -24,7 +24,9 @@ export class CreatePlanDto {
   })
   code: string;
 
-  @ApiPropertyOptional({ example: 'Para complejos grandes, canchas ilimitadas' })
+  @ApiPropertyOptional({
+    example: 'Para complejos grandes, canchas ilimitadas',
+  })
   @IsOptional()
   @IsString()
   description?: string;

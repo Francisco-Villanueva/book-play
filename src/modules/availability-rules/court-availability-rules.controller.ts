@@ -1,5 +1,19 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Param, Post, UseGuards } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  Body,
+  Controller,
+  Get,
+  HttpCode,
+  HttpStatus,
+  Param,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AvailabilityRulesService } from './availability-rules.service';
 import { AssignAvailabilityRuleDto } from './dto/assign-availability-rule.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -45,7 +59,10 @@ export class CourtAvailabilityRulesController {
   @ApiOperation({ summary: 'Assign an availability rule to a court' })
   @ApiResponse({ status: 201, description: 'Rule assigned to court' })
   @ApiResponse({ status: 404, description: 'Court or rule not found' })
-  @ApiResponse({ status: 409, description: 'Rule already assigned to this court' })
+  @ApiResponse({
+    status: 409,
+    description: 'Rule already assigned to this court',
+  })
   async assign(
     @Param('businessId') businessId: string,
     @Param('courtId') courtId: string,

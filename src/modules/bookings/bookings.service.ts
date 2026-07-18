@@ -21,6 +21,8 @@ import { AvailabilityRule } from '../availability-rules/entities/availability-ru
 import { ExceptionRule } from '../exception-rules/entities/exception-rule.model';
 import { BookingStatus } from '../../common/enums';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
 
 @Injectable()
 export class BookingsService {
@@ -37,6 +39,8 @@ export class BookingsService {
     private readonly exceptionRuleModel: typeof ExceptionRule,
     @Inject('SEQUELIZE')
     private readonly sequelize: Sequelize,
+    private readonly usersService: UsersService,
+    private readonly mailService: MailService,
   ) {}
 
   async create(
@@ -63,7 +67,13 @@ export class BookingsService {
     this.validateNoMidnightCrossing(dto.startTime, endTime);
     this.validateNotInPast(dto.date);
 
-    await this.checkAvailability(businessId, dto.courtId, dto.date, dto.startTime, endTime);
+    await this.checkAvailability(
+      businessId,
+      dto.courtId,
+      dto.date,
+      dto.startTime,
+      endTime,
+    );
 
     // Serializable transaction serializes concurrent booking attempts on the same slot.
     // PostgreSQL SSI detects the read-then-insert dependency and aborts one of two
@@ -74,7 +84,13 @@ export class BookingsService {
     });
 
     try {
-      await this.checkNoOverlap(dto.courtId, dto.date, dto.startTime, endTime, t);
+      await this.checkNoOverlap(
+        dto.courtId,
+        dto.date,
+        dto.startTime,
+        endTime,
+        t,
+      );
 
       const totalPrice =
         Number(court.pricePerHour) * (business.slotDuration / 60);
@@ -97,6 +113,9 @@ export class BookingsService {
       );
 
       await t.commit();
+
+      void this.notifyBookingCreated(booking, court, business, userId);
+
       return booking;
     } catch (err) {
       await t.rollback();
@@ -157,6 +176,8 @@ export class BookingsService {
       cancelledAt: new Date(),
     });
 
+    void this.notifyBookingCancelled(booking);
+
     return booking;
   }
 
@@ -188,6 +209,8 @@ export class BookingsService {
       cancelledAt: new Date(),
     });
 
+    void this.notifyBookingCancelled(booking);
+
     return booking;
   }
 
@@ -203,13 +226,17 @@ export class BookingsService {
   }> {
     const today = this.todayLocalISO();
     if (date < today) {
-      throw new BadRequestException('Cannot check availability for a past date');
+      throw new BadRequestException(
+        'Cannot check availability for a past date',
+      );
     }
 
     const business = await this.businessModel.findByPk(businessId);
     if (!business) throw new NotFoundException('Business not found');
 
-    const court = await this.courtModel.findOne({ where: { id: courtId, businessId } });
+    const court = await this.courtModel.findOne({
+      where: { id: courtId, businessId },
+    });
     if (!court) throw new NotFoundException('Court not found in this business');
 
     const dayOfWeek = new Date(date + 'T12:00:00').getDay();
@@ -217,7 +244,11 @@ export class BookingsService {
 
     // Fetch exceptions that apply to this court: global ones (no court entries)
     // and court-specific ones that explicitly include this court.
-    const exceptions = await this.getApplicableExceptions(businessId, courtId, date);
+    const exceptions = await this.getApplicableExceptions(
+      businessId,
+      courtId,
+      date,
+    );
 
     let openWindows: { start: string; end: string }[] = [];
     const blockedRanges: { start: string; end: string }[] = [];
@@ -242,13 +273,15 @@ export class BookingsService {
     if (!hasEnablingException) {
       const rules = await this.availabilityRuleModel.findAll({
         where: { businessId, dayOfWeek, isActive: true },
-        include: [{
-          model: Court,
-          as: 'courts',
-          where: { id: courtId },
-          through: { attributes: [] },
-          required: true,
-        }],
+        include: [
+          {
+            model: Court,
+            as: 'courts',
+            where: { id: courtId },
+            through: { attributes: [] },
+            required: true,
+          },
+        ],
       });
       if (rules.length === 0) {
         return { date, courtId, slotDuration, availableSlots: [] };
@@ -290,6 +323,65 @@ export class BookingsService {
     return { date, courtId, slotDuration, availableSlots };
   }
 
+  // Business-wide availability for a date: one call returning every active
+  // court's open slots plus a summarised next-free/full flag. Powers the public
+  // court-list screen without the client having to fan out one request per court.
+  async getBusinessAvailability(
+    businessId: string,
+    date: string,
+  ): Promise<{
+    date: string;
+    slotDuration: number;
+    courts: {
+      courtId: string;
+      name: string;
+      sportType: string | null;
+      surface: string | null;
+      pricePerHour: number | null;
+      availableSlots: { startTime: string; endTime: string }[];
+      nextAvailable: string | null;
+      isFull: boolean;
+    }[];
+  }> {
+    const today = this.todayLocalISO();
+    if (date < today) {
+      throw new BadRequestException(
+        'Cannot check availability for a past date',
+      );
+    }
+
+    const business = await this.businessModel.findByPk(businessId);
+    if (!business) throw new NotFoundException('Business not found');
+
+    const courts = await this.courtModel.findAll({
+      where: { businessId, isActive: true },
+      order: [['name', 'ASC']],
+    });
+
+    const results = await Promise.all(
+      courts.map(async (court) => {
+        const { availableSlots } = await this.getAvailableSlots(
+          businessId,
+          court.id,
+          date,
+        );
+        return {
+          courtId: court.id,
+          name: court.name,
+          sportType: court.sportType ?? null,
+          surface: court.surface ?? null,
+          pricePerHour:
+            court.pricePerHour != null ? Number(court.pricePerHour) : null,
+          availableSlots,
+          nextAvailable: availableSlots[0]?.startTime ?? null,
+          isFull: availableSlots.length === 0,
+        };
+      }),
+    );
+
+    return { date, slotDuration: business.slotDuration, courts: results };
+  }
+
   // Returns ExceptionRules that apply to a given court on a given date.
   // Includes both global exceptions (no court entries in CourtException — applies
   // to all courts in the business) and court-specific exceptions for this court.
@@ -301,18 +393,20 @@ export class BookingsService {
   ): Promise<ExceptionRule[]> {
     const all = await this.exceptionRuleModel.findAll({
       where: { businessId, date },
-      include: [{
-        model: Court,
-        as: 'courts',
-        attributes: ['id'],
-        through: { attributes: [] },
-        required: false, // LEFT JOIN — keeps exceptions with zero court entries
-      }],
+      include: [
+        {
+          model: Court,
+          as: 'courts',
+          attributes: ['id'],
+          through: { attributes: [] },
+          required: false, // LEFT JOIN — keeps exceptions with zero court entries
+        },
+      ],
     });
 
     return all.filter(
       (exc) =>
-        exc.courts.length === 0 ||              // global: applies to all courts
+        exc.courts.length === 0 || // global: applies to all courts
         exc.courts.some((c) => c.id === courtId), // court-specific: targets this court
     );
   }
@@ -326,7 +420,11 @@ export class BookingsService {
   ): Promise<void> {
     const dayOfWeek = new Date(date + 'T12:00:00').getDay();
 
-    const exceptions = await this.getApplicableExceptions(businessId, courtId, date);
+    const exceptions = await this.getApplicableExceptions(
+      businessId,
+      courtId,
+      date,
+    );
 
     if (exceptions.length > 0) {
       return this.checkExceptionAvailability(
@@ -339,7 +437,13 @@ export class BookingsService {
       );
     }
 
-    await this.checkAvailabilityRules(businessId, courtId, dayOfWeek, startTime, endTime);
+    await this.checkAvailabilityRules(
+      businessId,
+      courtId,
+      dayOfWeek,
+      startTime,
+      endTime,
+    );
   }
 
   private async checkExceptionAvailability(
@@ -384,7 +488,13 @@ export class BookingsService {
     }
 
     // Only partial-block exceptions were found; still validate against availability rules
-    await this.checkAvailabilityRules(businessId, courtId, dayOfWeek, startTime, endTime);
+    await this.checkAvailabilityRules(
+      businessId,
+      courtId,
+      dayOfWeek,
+      startTime,
+      endTime,
+    );
   }
 
   private async checkAvailabilityRules(
@@ -396,13 +506,15 @@ export class BookingsService {
   ): Promise<void> {
     const rules = await this.availabilityRuleModel.findAll({
       where: { businessId, dayOfWeek, isActive: true },
-      include: [{
-        model: Court,
-        as: 'courts',
-        where: { id: courtId },
-        through: { attributes: [] },
-        required: true,
-      }],
+      include: [
+        {
+          model: Court,
+          as: 'courts',
+          where: { id: courtId },
+          through: { attributes: [] },
+          required: true,
+        },
+      ],
     });
 
     if (rules.length === 0) {
@@ -450,11 +562,17 @@ export class BookingsService {
   }
 
   private isSerializationError(err: unknown): boolean {
-    const e = err as { parent?: { code?: string }; original?: { code?: string } };
+    const e = err as {
+      parent?: { code?: string };
+      original?: { code?: string };
+    };
     return e?.parent?.code === '40001' || e?.original?.code === '40001';
   }
 
-  private validateBooker(userId: string | undefined, dto: CreateBookingDto): void {
+  private validateBooker(
+    userId: string | undefined,
+    dto: CreateBookingDto,
+  ): void {
     if (userId) return;
 
     const hasContact = dto.guestPhone || dto.guestEmail;
@@ -503,5 +621,61 @@ export class BookingsService {
   private normalizeTime(time: string): string {
     // Strip seconds from DB TIME values (e.g., "09:00:00" → "09:00")
     return time.substring(0, 5);
+  }
+
+  private async resolveBookingRecipient(
+    booking: Booking,
+    userId?: string,
+  ): Promise<{ email: string; name: string } | null> {
+    if (userId) {
+      const user = await this.usersService.findById(userId);
+      return user ? { email: user.email, name: user.name } : null;
+    }
+    return booking.guestEmail
+      ? { email: booking.guestEmail, name: booking.guestName || 'jugador' }
+      : null;
+  }
+
+  private async notifyBookingCreated(
+    booking: Booking,
+    court: Court,
+    business: Business,
+    userId?: string,
+  ): Promise<void> {
+    const recipient = await this.resolveBookingRecipient(booking, userId);
+    if (!recipient) return;
+    await this.mailService.sendBookingConfirmation({
+      to: recipient.email,
+      recipientName: recipient.name,
+      businessName: business.name,
+      courtName: court.name,
+      date: booking.date,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      price: Number(booking.totalPrice),
+      bookingId: booking.id,
+    });
+  }
+
+  private async notifyBookingCancelled(booking: Booking): Promise<void> {
+    const recipient = await this.resolveBookingRecipient(
+      booking,
+      booking.userId || undefined,
+    );
+    if (!recipient) return;
+    const businessName =
+      booking.business?.name ??
+      (await this.businessModel.findByPk(booking.businessId))?.name ??
+      'el complejo';
+    await this.mailService.sendBookingCancellation({
+      to: recipient.email,
+      recipientName: recipient.name,
+      businessName,
+      courtName: booking.court?.name ?? 'la cancha',
+      date: booking.date,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+      businessId: booking.businessId,
+    });
   }
 }

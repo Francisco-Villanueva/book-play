@@ -16,7 +16,10 @@ export class CreateExceptionRuleDto {
   @IsNotEmpty()
   date: string;
 
-  @ApiPropertyOptional({ example: '08:00', description: 'If omitted, exception applies all day' })
+  @ApiPropertyOptional({
+    example: '08:00',
+    description: 'If omitted, exception applies all day',
+  })
   @IsOptional()
   @IsMilitaryTime()
   startTime?: string;
@@ -35,7 +38,10 @@ export class CreateExceptionRuleDto {
   @IsString()
   reason?: string;
 
-  @ApiPropertyOptional({ type: [String], example: ['a1b2c3d4-e5f6-7890-abcd-ef1234567890'] })
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['a1b2c3d4-e5f6-7890-abcd-ef1234567890'],
+  })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })

@@ -10,7 +10,12 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { ExceptionRulesService } from './exception-rules.service';
 import { CreateExceptionRuleDto } from './dto/create-exception-rule.dto';
 import { UpdateExceptionRuleDto } from './dto/update-exception-rule.dto';
@@ -28,7 +33,9 @@ export class ExceptionRulesController {
 
   @Post()
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
-  @ApiOperation({ summary: 'Create an exception rule (holiday, special event)' })
+  @ApiOperation({
+    summary: 'Create an exception rule (holiday, special event)',
+  })
   @ApiResponse({ status: 201, description: 'Exception rule created' })
   async create(
     @Param('businessId') businessId: string,

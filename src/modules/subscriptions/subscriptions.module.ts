@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { DatabaseModule } from '../database/database.module';
 import { MercadoPagoModule } from '../mercadopago/mercadopago.module';
 import { BusinessUsersModule } from '../business-users/business-users.module';
+import { MailModule } from '../mail/mail.module';
 import {
   subscriptionProvider,
   businessFeatureProvider,
@@ -19,7 +20,7 @@ import { MasterBillingService } from './master-billing.service';
 import { MercadoPagoWebhookSignatureGuard } from './guards/mercadopago-webhook-signature.guard';
 
 @Module({
-  imports: [DatabaseModule, MercadoPagoModule, BusinessUsersModule],
+  imports: [DatabaseModule, MercadoPagoModule, BusinessUsersModule, MailModule],
   controllers: [
     SubscriptionsController,
     WebhookController,

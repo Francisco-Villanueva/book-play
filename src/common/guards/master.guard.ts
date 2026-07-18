@@ -18,7 +18,9 @@ export class MasterGuard implements CanActivate {
     }
 
     if (user.globalRole !== GlobalRole.MASTER) {
-      throw new ForbiddenException('Access restricted to MASTER administrators');
+      throw new ForbiddenException(
+        'Access restricted to MASTER administrators',
+      );
     }
 
     return true;

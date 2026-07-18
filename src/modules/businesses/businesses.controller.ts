@@ -42,10 +42,25 @@ export class BusinessesController {
   }
 
   @Get('search')
-  @ApiOperation({ summary: 'Public search of businesses to book at (no auth required)' })
+  @ApiOperation({
+    summary: 'Public search of businesses to book at (no auth required)',
+  })
   @ApiResponse({ status: 200, description: 'Matching businesses' })
   async search(@Query('q') q?: string) {
     return this.businessesService.searchPublicBusinesses(q);
+  }
+
+  @Get(':businessId/public')
+  @ApiOperation({
+    summary: 'Public business details for the booking page (no auth required)',
+  })
+  @ApiResponse({ status: 200, description: 'Public business details' })
+  @ApiResponse({ status: 404, description: 'Business not found' })
+  async findPublicById(@Param('businessId') businessId: string) {
+    const business =
+      await this.businessesService.findPublicBusinessById(businessId);
+    if (!business) throw new NotFoundException('Business not found');
+    return business;
   }
 
   @UseGuards(JwtAuthGuard)
@@ -86,7 +101,10 @@ export class BusinessesController {
   @Patch(':businessId')
   @ApiOperation({ summary: 'Update business details (OWNER or ADMIN)' })
   @ApiResponse({ status: 200, description: 'Business updated' })
-  @ApiResponse({ status: 400, description: 'No fields provided or validation error' })
+  @ApiResponse({
+    status: 400,
+    description: 'No fields provided or validation error',
+  })
   @ApiResponse({ status: 403, description: 'Insufficient role' })
   @ApiResponse({ status: 404, description: 'Business not found' })
   async update(

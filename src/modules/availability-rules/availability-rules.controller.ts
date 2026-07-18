@@ -10,9 +10,15 @@ import {
   Put,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { AvailabilityRulesService } from './availability-rules.service';
 import { CreateAvailabilityRuleDto } from './dto/create-availability-rule.dto';
+import { CreateAvailabilityRulesBatchDto } from './dto/create-availability-rules-batch.dto';
 import { UpdateAvailabilityRuleDto } from './dto/update-availability-rule.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessRolesGuard } from '../../common/guards/business-roles.guard';
@@ -46,6 +52,31 @@ export class AvailabilityRulesController {
       isActive: rule.isActive,
       courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
     };
+  }
+
+  @Post('batch')
+  @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
+  @ApiOperation({
+    summary: 'Create availability rules for multiple days at once',
+  })
+  @ApiResponse({ status: 201, description: 'Rules created' })
+  async createBatch(
+    @Param('businessId') businessId: string,
+    @Body() dto: CreateAvailabilityRulesBatchDto,
+  ) {
+    const rules = await this.availabilityRulesService.createBatch(
+      businessId,
+      dto,
+    );
+    return rules.map((rule) => ({
+      id: rule.id,
+      name: rule.name,
+      dayOfWeek: rule.dayOfWeek,
+      startTime: rule.startTime,
+      endTime: rule.endTime,
+      isActive: rule.isActive,
+      courts: rule.courts?.map((c) => ({ id: c.id, name: c.name })),
+    }));
   }
 
   @Get()

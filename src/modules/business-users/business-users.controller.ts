@@ -11,9 +11,15 @@ import {
   Req,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiOperation, ApiResponse, ApiTags } from '@nestjs/swagger';
+import {
+  ApiBearerAuth,
+  ApiOperation,
+  ApiResponse,
+  ApiTags,
+} from '@nestjs/swagger';
 import { BusinessUsersService } from './business-users.service';
 import { InviteMemberDto } from './dto/invite-member.dto';
+import { InviteByEmailDto } from './dto/invite-by-email.dto';
 import { UpdateMemberRoleDto } from './dto/update-member-role.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessRolesGuard } from '../../common/guards/business-roles.guard';
@@ -43,6 +49,24 @@ export class BusinessUsersController {
       req.businessUser.role,
     );
     return member;
+  }
+
+  @Post('invitations')
+  @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
+  @ApiOperation({ summary: 'Invite a user to the business by email' })
+  @ApiResponse({ status: 201, description: 'Invitation sent' })
+  @ApiResponse({ status: 409, description: 'User is already a member' })
+  async inviteByEmail(
+    @Param('businessId') businessId: string,
+    @Body() dto: InviteByEmailDto,
+    @Req() req: any,
+  ) {
+    return this.businessUsersService.inviteByEmail(
+      businessId,
+      dto,
+      req.businessUser.role,
+      { id: req.user.id, name: req.user.name },
+    );
   }
 
   @Get()

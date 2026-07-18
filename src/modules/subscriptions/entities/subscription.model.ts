@@ -59,6 +59,10 @@ export class Subscription extends Model {
   @Column({ type: DataType.DATE, field: 'cancelled_at' })
   declare cancelledAt: Date | null;
 
+  // Marca el envío del aviso "fin de trial próximo" para no reenviarlo cada hora.
+  @Column({ type: DataType.DATE, field: 'trial_ending_notified_at' })
+  declare trialEndingNotifiedAt: Date | null;
+
   declare business: Business;
   declare plan: Plan | null;
 }

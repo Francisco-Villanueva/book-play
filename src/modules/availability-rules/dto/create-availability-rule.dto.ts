@@ -17,7 +17,12 @@ export class CreateAvailabilityRuleDto {
   @IsNotEmpty()
   name: string;
 
-  @ApiProperty({ example: 1, minimum: 0, maximum: 6, description: '0=Sunday, 6=Saturday' })
+  @ApiProperty({
+    example: 1,
+    minimum: 0,
+    maximum: 6,
+    description: '0=Sunday, 6=Saturday',
+  })
   @IsInt()
   @Min(0)
   @Max(6)
@@ -31,7 +36,10 @@ export class CreateAvailabilityRuleDto {
   @IsMilitaryTime()
   endTime: string;
 
-  @ApiPropertyOptional({ type: [String], example: ['a1b2c3d4-e5f6-7890-abcd-ef1234567890'] })
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['a1b2c3d4-e5f6-7890-abcd-ef1234567890'],
+  })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })

@@ -101,4 +101,14 @@ export class UsersService {
     const res = await bcrypt.compare(plainPassword, hashedPassword);
     return res;
   }
+
+  async setPassword(userId: string, newPlainPassword: string): Promise<User> {
+    const user = await this.findById(userId);
+    if (!user) {
+      throw new NotFoundException('User not found');
+    }
+    user.password = await bcrypt.hash(newPlainPassword, 10);
+    await user.save();
+    return user;
+  }
 }

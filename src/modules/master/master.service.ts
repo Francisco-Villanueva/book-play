@@ -30,7 +30,7 @@ export class MasterService {
     });
 
     return businesses.map((b) => {
-      const raw = b.toJSON() as any;
+      const raw = b.toJSON();
       return {
         id: raw.id,
         name: raw.name,
@@ -52,7 +52,15 @@ export class MasterService {
         {
           model: Court,
           as: 'courts',
-          attributes: ['id', 'name', 'sportType', 'surface', 'isIndoor', 'hasLighting', 'pricePerHour'],
+          attributes: [
+            'id',
+            'name',
+            'sportType',
+            'surface',
+            'isIndoor',
+            'hasLighting',
+            'pricePerHour',
+          ],
         },
         {
           model: BusinessUser,
@@ -70,7 +78,7 @@ export class MasterService {
 
     if (!business) throw new NotFoundException('Business not found');
 
-    const raw = business.toJSON() as any;
+    const raw = business.toJSON();
 
     return {
       id: raw.id,
@@ -121,7 +129,7 @@ export class MasterService {
     });
 
     return users.map((u) => {
-      const raw = u.toJSON() as any;
+      const raw = u.toJSON();
       return {
         id: raw.id,
         name: raw.name,

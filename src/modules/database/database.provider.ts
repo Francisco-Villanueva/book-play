@@ -12,6 +12,8 @@ import { Plan } from '../plans/entities/plan.model';
 import { Subscription } from '../subscriptions/entities/subscription.model';
 import { BusinessFeature } from '../subscriptions/entities/business-feature.model';
 import { Payment } from '../subscriptions/entities/payment.model';
+import { PasswordResetToken } from '../auth/entities/password-reset-token.model';
+import { BusinessInvitation } from '../business-users/entities/business-invitation.model';
 
 function defineAssociations() {
   // User
@@ -87,18 +89,57 @@ function defineAssociations() {
   });
 
   // Subscription / Plan / BusinessFeature / Payment
-  Business.hasOne(Subscription, { foreignKey: 'businessId', as: 'subscription' });
-  Subscription.belongsTo(Business, { foreignKey: 'businessId', as: 'business' });
+  Business.hasOne(Subscription, {
+    foreignKey: 'businessId',
+    as: 'subscription',
+  });
+  Subscription.belongsTo(Business, {
+    foreignKey: 'businessId',
+    as: 'business',
+  });
   Plan.hasMany(Subscription, { foreignKey: 'planId', as: 'subscriptions' });
   Subscription.belongsTo(Plan, { foreignKey: 'planId', as: 'plan' });
-  Subscription.hasMany(Payment, { foreignKey: 'subscriptionId', as: 'payments' });
-  Payment.belongsTo(Subscription, { foreignKey: 'subscriptionId', as: 'subscription' });
+  Subscription.hasMany(Payment, {
+    foreignKey: 'subscriptionId',
+    as: 'payments',
+  });
+  Payment.belongsTo(Subscription, {
+    foreignKey: 'subscriptionId',
+    as: 'subscription',
+  });
   Business.hasMany(Payment, { foreignKey: 'businessId', as: 'payments' });
   Payment.belongsTo(Business, { foreignKey: 'businessId', as: 'business' });
   Plan.hasMany(Payment, { foreignKey: 'planId', as: 'payments' });
   Payment.belongsTo(Plan, { foreignKey: 'planId', as: 'plan' });
-  Business.hasMany(BusinessFeature, { foreignKey: 'businessId', as: 'features' });
-  BusinessFeature.belongsTo(Business, { foreignKey: 'businessId', as: 'business' });
+  Business.hasMany(BusinessFeature, {
+    foreignKey: 'businessId',
+    as: 'features',
+  });
+  BusinessFeature.belongsTo(Business, {
+    foreignKey: 'businessId',
+    as: 'business',
+  });
+
+  // Password reset
+  User.hasMany(PasswordResetToken, {
+    foreignKey: 'userId',
+    as: 'passwordResetTokens',
+  });
+  PasswordResetToken.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+
+  // Business invitations
+  Business.hasMany(BusinessInvitation, {
+    foreignKey: 'businessId',
+    as: 'invitations',
+  });
+  BusinessInvitation.belongsTo(Business, {
+    foreignKey: 'businessId',
+    as: 'business',
+  });
+  BusinessInvitation.belongsTo(User, {
+    foreignKey: 'invitedByUserId',
+    as: 'invitedBy',
+  });
 }
 
 export const databaseProviders = [
@@ -125,6 +166,8 @@ export const databaseProviders = [
         Subscription,
         BusinessFeature,
         Payment,
+        PasswordResetToken,
+        BusinessInvitation,
       ]);
 
       defineAssociations();

@@ -35,7 +35,10 @@ export class UpdateExceptionRuleDto {
   @IsString()
   reason?: string;
 
-  @ApiPropertyOptional({ type: [String], example: ['a1b2c3d4-e5f6-7890-abcd-ef1234567890'] })
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['a1b2c3d4-e5f6-7890-abcd-ef1234567890'],
+  })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })

@@ -17,7 +17,12 @@ export class UpdateAvailabilityRuleDto {
   @IsString()
   name?: string;
 
-  @ApiPropertyOptional({ example: 1, minimum: 0, maximum: 6, description: '0=Sunday, 6=Saturday' })
+  @ApiPropertyOptional({
+    example: 1,
+    minimum: 0,
+    maximum: 6,
+    description: '0=Sunday, 6=Saturday',
+  })
   @IsOptional()
   @IsInt()
   @Min(0)
@@ -39,7 +44,10 @@ export class UpdateAvailabilityRuleDto {
   @IsBoolean()
   isActive?: boolean;
 
-  @ApiPropertyOptional({ type: [String], example: ['a1b2c3d4-e5f6-7890-abcd-ef1234567890'] })
+  @ApiPropertyOptional({
+    type: [String],
+    example: ['a1b2c3d4-e5f6-7890-abcd-ef1234567890'],
+  })
   @IsOptional()
   @IsArray()
   @IsUUID('4', { each: true })

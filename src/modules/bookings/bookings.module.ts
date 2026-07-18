@@ -9,6 +9,8 @@ import { CourtsModule } from '../courts/courts.module';
 import { BusinessesModule } from '../businesses/businesses.module';
 import { AvailabilityRulesModule } from '../availability-rules/availability-rules.module';
 import { ExceptionRulesModule } from '../exception-rules/exception-rules.module';
+import { UsersModule } from '../users/users.module';
+import { MailModule } from '../mail/mail.module';
 
 @Module({
   imports: [
@@ -18,6 +20,8 @@ import { ExceptionRulesModule } from '../exception-rules/exception-rules.module'
     BusinessesModule,
     AvailabilityRulesModule,
     ExceptionRulesModule,
+    UsersModule,
+    MailModule,
   ],
   controllers: [BookingsController, MyBookingsController],
   providers: [BookingsService, ...bookingProvider],
