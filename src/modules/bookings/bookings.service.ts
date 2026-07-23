@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { Op, Transaction } from 'sequelize';
 import { Sequelize } from 'sequelize-typescript';
+import * as crypto from 'crypto';
 import {
   BOOKING_REPOSITORY,
   COURT_REPOSITORY,
@@ -95,6 +96,15 @@ export class BookingsService {
       const totalPrice =
         Number(court.pricePerHour) * (business.slotDuration / 60);
 
+      // Guest bookings (no account) get a cancellation token so the confirmation
+      // email can offer a working "cancel" link without requiring login.
+      let cancellationToken: string | undefined;
+      let cancellationTokenHash: string | null = null;
+      if (!userId) {
+        cancellationToken = crypto.randomBytes(32).toString('hex');
+        cancellationTokenHash = this.hashToken(cancellationToken);
+      }
+
       const booking = await this.bookingModel.create(
         {
           courtId: dto.courtId,
@@ -108,13 +118,20 @@ export class BookingsService {
           endTime,
           totalPrice,
           notes: dto.notes || null,
+          cancellationTokenHash,
         },
         { transaction: t },
       );
 
       await t.commit();
 
-      void this.notifyBookingCreated(booking, court, business, userId);
+      void this.notifyBookingCreated(
+        booking,
+        court,
+        business,
+        userId,
+        cancellationToken,
+      );
 
       return booking;
     } catch (err) {
@@ -179,6 +196,92 @@ export class BookingsService {
     void this.notifyBookingCancelled(booking);
 
     return booking;
+  }
+
+  // Public — validated by the token from the confirmation email, not by session.
+  async findForGuestCancellation(
+    bookingId: string,
+    businessId: string,
+    token: string,
+  ): Promise<{
+    id: string;
+    status: BookingStatus;
+    businessName: string;
+    courtName: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+  }> {
+    const booking = await this.getGuestBookingByToken(
+      bookingId,
+      businessId,
+      token,
+    );
+    return {
+      id: booking.id,
+      status: booking.status,
+      businessName: booking.business?.name ?? '',
+      courtName: booking.court?.name ?? '',
+      date: booking.date,
+      startTime: booking.startTime,
+      endTime: booking.endTime,
+    };
+  }
+
+  // Public — validated by the token from the confirmation email, not by session.
+  async cancelByGuestToken(
+    bookingId: string,
+    businessId: string,
+    token: string,
+  ): Promise<Booking> {
+    const booking = await this.getGuestBookingByToken(
+      bookingId,
+      businessId,
+      token,
+    );
+
+    if (booking.status === BookingStatus.CANCELLED) {
+      throw new BadRequestException('Booking is already cancelled');
+    }
+
+    await booking.update({
+      status: BookingStatus.CANCELLED,
+      cancelledAt: new Date(),
+    });
+
+    void this.notifyBookingCancelled(booking);
+
+    return booking;
+  }
+
+  private async getGuestBookingByToken(
+    bookingId: string,
+    businessId: string,
+    token: string,
+  ): Promise<Booking> {
+    const booking = await this.bookingModel.findOne({
+      where: { id: bookingId, businessId },
+      include: [
+        { model: Court, as: 'court' },
+        { model: Business, as: 'business' },
+      ],
+    });
+
+    const tokenHash = this.hashToken(token);
+    if (
+      !booking ||
+      booking.userId ||
+      !booking.cancellationTokenHash ||
+      booking.cancellationTokenHash !== tokenHash
+    ) {
+      throw new NotFoundException('Booking not found');
+    }
+
+    return booking;
+  }
+
+  private hashToken(token: string): string {
+    return crypto.createHash('sha256').update(token).digest('hex');
   }
 
   async findOneForUser(id: string, userId: string): Promise<Booking> {
@@ -641,6 +744,7 @@ export class BookingsService {
     court: Court,
     business: Business,
     userId?: string,
+    cancellationToken?: string,
   ): Promise<void> {
     const recipient = await this.resolveBookingRecipient(booking, userId);
     if (!recipient) return;
@@ -653,7 +757,9 @@ export class BookingsService {
       startTime: booking.startTime,
       endTime: booking.endTime,
       price: Number(booking.totalPrice),
+      businessId: business.id,
       bookingId: booking.id,
+      guestCancellationToken: cancellationToken,
     });
   }
 

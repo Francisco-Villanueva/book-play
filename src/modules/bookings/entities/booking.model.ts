@@ -78,6 +78,12 @@ export class Booking extends Model {
   @Column({ type: DataType.DATE, field: 'cancelled_at' })
   declare cancelledAt: Date;
 
+  // Sólo se completa para reservas de invitado (sin userId) — permite cancelar
+  // desde el link del email de confirmación sin necesidad de cuenta/login.
+  // Se guarda el hash SHA-256; el token plano viaja únicamente en el email.
+  @Column({ type: DataType.STRING, field: 'cancellation_token_hash' })
+  declare cancellationTokenHash: string | null;
+
   declare court: Court;
   declare business: Business;
   declare user: User;

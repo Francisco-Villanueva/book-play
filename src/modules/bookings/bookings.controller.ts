@@ -19,6 +19,8 @@ import { BookingsService } from './bookings.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
 import { BusinessAvailabilityQueryDto } from './dto/business-availability-query.dto';
+import { GuestCancellationQueryDto } from './dto/guest-cancellation-query.dto';
+import { CancelGuestBookingDto } from './dto/cancel-guest-booking.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import { BusinessRolesGuard } from '../../common/guards/business-roles.guard';
@@ -101,6 +103,50 @@ export class BookingsController {
   ) {
     const booking = await this.bookingsService.findOne(bookingId, businessId);
     return booking;
+  }
+
+  @Get(':bookingId/guest-cancellation')
+  @ApiOperation({
+    summary:
+      'Get limited booking info for a guest cancellation link (public, validated by token)',
+  })
+  @ApiResponse({ status: 200, description: 'Booking summary' })
+  @ApiResponse({
+    status: 404,
+    description: 'Booking not found or invalid token',
+  })
+  async findForGuestCancellation(
+    @Param('businessId') businessId: string,
+    @Param('bookingId') bookingId: string,
+    @Query() query: GuestCancellationQueryDto,
+  ) {
+    return this.bookingsService.findForGuestCancellation(
+      bookingId,
+      businessId,
+      query.token,
+    );
+  }
+
+  @Patch(':bookingId/guest-cancellation')
+  @ApiOperation({
+    summary:
+      'Cancel a guest booking from the email link (public, validated by token)',
+  })
+  @ApiResponse({ status: 200, description: 'Booking cancelled' })
+  @ApiResponse({
+    status: 404,
+    description: 'Booking not found or invalid token',
+  })
+  async cancelViaGuestToken(
+    @Param('businessId') businessId: string,
+    @Param('bookingId') bookingId: string,
+    @Body() dto: CancelGuestBookingDto,
+  ) {
+    return this.bookingsService.cancelByGuestToken(
+      bookingId,
+      businessId,
+      dto.token,
+    );
   }
 
   @Patch(':bookingId/cancel')

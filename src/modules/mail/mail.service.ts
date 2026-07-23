@@ -1,6 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
-import { Resend } from 'resend';
+import * as nodemailer from 'nodemailer';
+import type { Transporter } from 'nodemailer';
 import {
   RenderedEmail,
   bookingCancellationEmail,
@@ -19,7 +20,7 @@ import {
 @Injectable()
 export class MailService {
   private readonly logger = new Logger(MailService.name);
-  private readonly client: Resend | null;
+  private readonly transporter: Transporter | null;
   private readonly from: string;
   private readonly replyTo?: string;
   private readonly frontendUrl: string;
@@ -27,7 +28,11 @@ export class MailService {
   private readonly enabled: boolean;
 
   constructor(private readonly configService: ConfigService) {
-    const apiKey = this.configService.get<string>('mail.resendApiKey');
+    const host = this.configService.get<string>('mail.host');
+    const port = this.configService.get<number>('mail.port') ?? 587;
+    const secure = this.configService.get<boolean>('mail.secure') ?? false;
+    const user = this.configService.get<string>('mail.user');
+    const password = this.configService.get<string>('mail.password');
     this.from = this.configService.get<string>('mail.from') ?? '';
     this.replyTo = this.configService.get<string>('mail.replyTo');
     this.frontendUrl =
@@ -35,7 +40,14 @@ export class MailService {
       'http://localhost:5173';
     this.logoUrl = this.configService.get<string>('mail.logoUrl');
     this.enabled = this.configService.get<boolean>('mail.enabled') ?? true;
-    this.client = apiKey ? new Resend(apiKey) : null;
+    this.transporter = host
+      ? nodemailer.createTransport({
+          host,
+          port,
+          secure,
+          auth: user && password ? { user, pass: password } : undefined,
+        })
+      : null;
   }
 
   private url(path: string): string {
@@ -50,24 +62,18 @@ export class MailService {
       this.logger.warn(`Skipping "${email.subject}" — no recipient`);
       return;
     }
-    if (!this.enabled || !this.client) {
+    if (!this.enabled || !this.transporter) {
       this.logger.log(`Mail disabled — skipped "${email.subject}" to ${to}`);
       return;
     }
     try {
-      const { error } = await this.client.emails.send({
+      await this.transporter.sendMail({
         from: this.from,
         to,
         subject: email.subject,
         html: email.html,
         ...(this.replyTo ? { replyTo: this.replyTo } : {}),
       });
-      if (error) {
-        this.logger.error(
-          `Failed to send "${email.subject}" to ${to}: ${error.message}`,
-        );
-        return;
-      }
       this.logger.log(`Sent "${email.subject}" to ${to}`);
     } catch (err) {
       this.logger.error(
@@ -115,7 +121,9 @@ export class MailService {
     startTime: string;
     endTime: string;
     price: number;
-    bookingId?: string;
+    businessId: string;
+    bookingId: string;
+    guestCancellationToken?: string;
   }): Promise<void> {
     await this.sendSafe(
       params.to,
@@ -127,8 +135,15 @@ export class MailService {
         startTime: params.startTime,
         endTime: params.endTime,
         price: params.price,
-        bookingUrl: params.bookingId
-          ? this.url(`/my-bookings/${params.bookingId}`)
+        // Los invitados no tienen cuenta, así que "Ver mi reserva" (que requiere
+        // login) no les sirve — reciben en cambio un link de cancelación directo.
+        bookingUrl: params.guestCancellationToken
+          ? undefined
+          : this.url(`/my-bookings/${params.bookingId}`),
+        cancelUrl: params.guestCancellationToken
+          ? this.url(
+              `/businesses/${params.businessId}/bookings/${params.bookingId}/cancel?token=${encodeURIComponent(params.guestCancellationToken)}`,
+            )
           : undefined,
         logoUrl: this.logoUrl,
       }),

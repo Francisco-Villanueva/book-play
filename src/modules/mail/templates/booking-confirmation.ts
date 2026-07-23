@@ -1,5 +1,6 @@
 import {
   BaseEmailProps,
+  COLORS,
   RenderedEmail,
   button,
   esc,
@@ -19,6 +20,8 @@ export interface BookingConfirmationProps extends BaseEmailProps {
   endTime: string;
   price: number;
   bookingUrl?: string;
+  // Presente sólo para reservas de invitado — permite cancelar sin login.
+  cancelUrl?: string;
 }
 
 export function bookingConfirmationEmail(
@@ -41,6 +44,9 @@ export function bookingConfirmationEmail(
       { label: 'Precio', value: esc(formatCurrency(props.price)) },
     ]) +
     (props.bookingUrl ? button(props.bookingUrl, 'Ver mi reserva') : '') +
+    (props.cancelUrl
+      ? button(props.cancelUrl, 'Cancelar reserva', COLORS.danger)
+      : '') +
     paragraph('¡Que la disfrutes! 🎾');
   return {
     subject,
