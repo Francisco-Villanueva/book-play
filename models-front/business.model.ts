@@ -8,7 +8,8 @@ export const BusinessSchema = z.object({
   phone: z.string().optional(),
   email: z.string().email().optional(),
   timezone: z.string(),
-  slotDuration: z.number().int(),
+  defaultSlotDuration: z.number().int(),
+  defaultPricePerSlot: z.number().nullable().optional(),
   createdAt: z.string().datetime(),
   updatedAt: z.string().datetime(),
 });

@@ -41,9 +41,15 @@ export class Business extends Model {
   @Column({ type: DataType.STRING, allowNull: false })
   declare timezone: string;
 
+  // Templates for new courts only — the operative values live on each Court.
+  // The DB column keeps its original name to avoid a data-losing rename under
+  // sequelize.sync({ alter: true }), which has no migration/backfill step.
   @Default(60)
   @Column({ type: DataType.INTEGER, allowNull: false, field: 'slot_duration' })
-  declare slotDuration: number;
+  declare defaultSlotDuration: number;
+
+  @Column({ type: DataType.DECIMAL(10, 2), field: 'default_price_per_slot' })
+  declare defaultPricePerSlot: number;
 
   declare businessUsers: BusinessUser[];
   declare courts: Court[];

@@ -9,7 +9,7 @@ export const CourtSchema = z.object({
   capacity: z.number().int().optional(),
   isIndoor: z.boolean(),
   hasLighting: z.boolean(),
-  pricePerHour: z.number().optional(),
+  pricePerSlot: z.number().optional(),
   description: z.string().optional(),
   isActive: z.boolean(),
   createdAt: z.string().datetime(),

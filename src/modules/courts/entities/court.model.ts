@@ -43,8 +43,15 @@ export class Court extends Model {
   @Column({ type: DataType.BOOLEAN, allowNull: false, field: 'has_lighting' })
   declare hasLighting: boolean;
 
+  @Default(60)
+  @Column({ type: DataType.INTEGER, allowNull: false, field: 'slot_duration' })
+  declare slotDuration: number;
+
+  // JS name reflects the real semantics (price of one turno, court.slotDuration
+  // long) — the DB column keeps its original name to avoid a data-losing rename
+  // under sequelize.sync({ alter: true }), which has no migration/backfill step.
   @Column({ type: DataType.DECIMAL(10, 2), field: 'price_per_hour' })
-  declare pricePerHour: number;
+  declare pricePerSlot: number;
 
   @Column(DataType.TEXT)
   declare description: string;

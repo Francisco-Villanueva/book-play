@@ -179,7 +179,8 @@ Authorization: Bearer {token}
   "phone": "+54 291 555-1111",
   "email": "info@complejosur.com",
   "timezone": "America/Argentina/Buenos_Aires",
-  "slotDuration": 60
+  "defaultSlotDuration": 60,
+  "defaultPricePerSlot": 9000
 }
 ```
 
@@ -197,7 +198,9 @@ Authorization: Bearer {token}
 **Validation**:
 - Name required, min 3 characters
 - Timezone must be valid IANA timezone
-- slotDuration must be 30, 60, 90, or 120 minutes
+- defaultSlotDuration must be 30, 60, 90, or 120 minutes
+- defaultSlotDuration/defaultPricePerSlot only seed new courts — the operative values live
+  on each court (`court.slotDuration`, `court.pricePerSlot`)
 
 ---
 
@@ -218,7 +221,8 @@ Get detailed information about a business.
     "phone": "...",
     "email": "...",
     "timezone": "America/Argentina/Buenos_Aires",
-    "slotDuration": 60,
+    "defaultSlotDuration": 60,
+    "defaultPricePerSlot": 9000,
     "courtsCount": 5,
     "createdAt": "2024-01-01T00:00:00Z"
   },
@@ -293,7 +297,7 @@ Get all courts for a business.
       "capacity": 10,
       "isIndoor": false,
       "hasLighting": true,
-      "pricePerHour": 5000.00,
+      "pricePerSlot": 5000.00,
       "isActive": true
     }
   ]
@@ -317,7 +321,7 @@ Create a new court.
   "capacity": 4,
   "isIndoor": false,
   "hasLighting": true,
-  "pricePerHour": 3500.00,
+  "pricePerSlot": 3500.00,
   "description": "Cancha profesional de pádel"
 }
 ```

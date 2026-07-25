@@ -38,7 +38,11 @@ export class MasterService {
         phone: raw.phone ?? null,
         email: raw.email ?? null,
         timezone: raw.timezone,
-        slotDuration: raw.slotDuration,
+        defaultSlotDuration: raw.defaultSlotDuration,
+        defaultPricePerSlot:
+          raw.defaultPricePerSlot != null
+            ? Number(raw.defaultPricePerSlot)
+            : null,
         courtsCount: (raw.courts as unknown[]).length,
         membersCount: (raw.businessUsers as unknown[]).length,
         createdAt: raw.createdAt,
@@ -59,7 +63,8 @@ export class MasterService {
             'surface',
             'isIndoor',
             'hasLighting',
-            'pricePerHour',
+            'slotDuration',
+            'pricePerSlot',
           ],
         },
         {
@@ -88,7 +93,9 @@ export class MasterService {
       phone: raw.phone ?? null,
       email: raw.email ?? null,
       timezone: raw.timezone,
-      slotDuration: raw.slotDuration,
+      defaultSlotDuration: raw.defaultSlotDuration,
+      defaultPricePerSlot:
+        raw.defaultPricePerSlot != null ? Number(raw.defaultPricePerSlot) : null,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
       courts: (raw.courts as any[]).map((c) => ({
@@ -98,7 +105,8 @@ export class MasterService {
         surface: c.surface ?? null,
         isIndoor: c.isIndoor,
         hasLighting: c.hasLighting,
-        pricePerHour: c.pricePerHour ?? null,
+        slotDuration: c.slotDuration,
+        pricePerSlot: c.pricePerSlot ?? null,
       })),
       members: (raw.businessUsers as any[]).map((bu) => ({
         id: bu.user?.id ?? null,

@@ -47,11 +47,24 @@ Court A - Monday 19:00-20:00 → ✅ ALLOWED (no overlap)
 4. User must have permission (if authenticated)
 
 ### BR-004: Booking Duration
-**Rule**: Booking duration is defined by the system configuration, not user input.
+**Rule**: Booking duration is defined by the court, not by user input. Every booking on a
+court spans exactly `court.slotDuration` minutes — the client sends `startTime` only and
+the server derives `endTime`.
 
-**MVP Behavior**: Fixed duration per business (e.g., 60-minute slots).
+**Per-court configuration**: `Court.slotDuration` is mandatory (30 | 60 | 90 | 120). On
+court creation it defaults to `business.defaultSlotDuration`; after that the two are
+independent, so one court can run 90-minute turnos while the rest run 60.
 
-**Future**: Variable duration based on court type or user preference.
+**Changing it**: only affects bookings created afterwards. Existing bookings keep their
+stored `startTime`/`endTime`.
+
+**Pricing**: Because every booking is exactly one `court.slotDuration`-long turno,
+`Court.pricePerSlot` is charged as-is per booking (`totalPrice = pricePerSlot`) — it is
+not an hourly rate multiplied by duration. It also defaults from
+`business.defaultPricePerSlot` on creation.
+
+**Future**: Variable duration within a single court (letting the player pick 60 vs 90),
+which would require revisiting the pricing rule above.
 
 ### BR-005: Guest Bookings
 **Rule**: Bookings can be created without a registered user account.
@@ -249,6 +262,34 @@ These rules are simplified for the MVP and will be enhanced in future versions:
 **Rule**: Only one ExceptionRule can apply to a given date per court.
 
 **Future**: Support multiple exceptions with conflict resolution.
+
+---
+
+### BR-025: On-Site Payment Recording
+**Rule**: The payment of a booking is recorded manually by the venue staff and is
+**independent of `status`**. A `CANCELLED` booking can be `PAID` (cancellation fee
+already collected) and an `ACTIVE` one can stay `UNPAID`. Payment state never blocks,
+conditions or invalidates BR-001 / BR-003 — it is bookkeeping, not a gate.
+
+- **`paymentStatus` is always derived, never sent by the client**, so it can never
+  contradict the player counts:
+  - `playersPaid === 0` → `UNPAID`
+  - `0 < playersPaid < totalPlayers` → `PARTIAL`
+  - `playersPaid >= totalPlayers` → `PAID`
+- `playersPaid` can never exceed `totalPlayers`; `totalPlayers >= 1`.
+- A booking paid by one person is just `totalPlayers: 1` — there is no separate
+  "whole booking" mode. The player count is the only unit of payment.
+- `amountPaid` defaults to the list price prorated across the players who paid, which is
+  how the money actually comes in at the venue. When everyone paid it records exactly
+  `totalPrice` so proration rounding never drifts the revenue total.
+- An explicit `amountPaid` overrides the proration. This is what keeps discounts and
+  courtesy turnos representable: `PAID` with `amountPaid < totalPrice` is valid.
+- Permissions: `OWNER | ADMIN | STAFF` can record a payment (same scope as creating and
+  cancelling bookings). Aggregate revenue reporting stays `OWNER` only — the per-booking
+  badge is operational information the front desk needs to charge.
+
+**Not covered (BR-020 still holds)**: there is no online payment for court time. This
+records money collected at the venue.
 
 ---
 

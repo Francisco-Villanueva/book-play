@@ -7,7 +7,7 @@ import {
   PrimaryKey,
   Table,
 } from 'sequelize-typescript';
-import { BookingStatus } from '../../../common/enums';
+import { BookingPaymentStatus, BookingStatus } from '../../../common/enums';
 import { Court } from '../../courts/entities/court.model';
 import { Business } from '../../businesses/entities/business.model';
 import { User } from '../../users/entities/user.model';
@@ -71,6 +71,37 @@ export class Booking extends Model {
 
   @Column({ type: DataType.DECIMAL(10, 2), field: 'total_price' })
   declare totalPrice: number;
+
+  // Cobro presencial del turno (BR-025). Es independiente de `status`: una reserva
+  // cancelada puede quedar cobrada (penalidad) y una activa sin cobrar.
+  @Default(BookingPaymentStatus.UNPAID)
+  @Column({
+    type: DataType.ENUM(...Object.values(BookingPaymentStatus)),
+    allowNull: false,
+    field: 'payment_status',
+  })
+  declare paymentStatus: BookingPaymentStatus;
+
+  // Puede ser menor a totalPrice sin que el estado deje de ser PAID: el complejo
+  // decide descuentos y cortesías en el mostrador.
+  @Column({ type: DataType.DECIMAL(10, 2), field: 'amount_paid' })
+  declare amountPaid: number | null;
+
+  @Column({ type: DataType.INTEGER, field: 'total_players' })
+  declare totalPlayers: number | null;
+
+  @Column({ type: DataType.INTEGER, field: 'players_paid' })
+  declare playersPaid: number | null;
+
+  @Column({ type: DataType.TEXT, field: 'payment_notes' })
+  declare paymentNotes: string | null;
+
+  // Auditoría mínima: guarda sólo el último registro, no un historial de cobros.
+  @Column({ type: DataType.UUID, field: 'payment_recorded_by' })
+  declare paymentRecordedBy: string | null;
+
+  @Column({ type: DataType.DATE, field: 'payment_recorded_at' })
+  declare paymentRecordedAt: Date | null;
 
   @Column(DataType.TEXT)
   declare notes: string;

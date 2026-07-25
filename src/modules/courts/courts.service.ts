@@ -4,8 +4,12 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { COURT_REPOSITORY } from '../database/constants/repositories.constants';
+import {
+  BUSINESS_REPOSITORY,
+  COURT_REPOSITORY,
+} from '../database/constants/repositories.constants';
 import { Court } from './entities/court.model';
+import { Business } from '../businesses/entities/business.model';
 import { Booking } from '../bookings/entities/booking.model';
 import { BookingStatus } from '../../common/enums';
 import { CreateCourtDto } from './dto/create-court.dto';
@@ -16,10 +20,22 @@ export class CourtsService {
   constructor(
     @Inject(COURT_REPOSITORY)
     private readonly courtModel: typeof Court,
+    @Inject(BUSINESS_REPOSITORY)
+    private readonly businessModel: typeof Business,
   ) {}
 
   async create(businessId: string, dto: CreateCourtDto): Promise<Court> {
-    return this.courtModel.create({ ...dto, businessId });
+    const business = await this.businessModel.findByPk(businessId);
+    if (!business) {
+      throw new NotFoundException('Business not found');
+    }
+
+    return this.courtModel.create({
+      ...dto,
+      businessId,
+      slotDuration: dto.slotDuration ?? business.defaultSlotDuration,
+      pricePerSlot: dto.pricePerSlot ?? business.defaultPricePerSlot,
+    });
   }
 
   async findAllByBusiness(businessId: string): Promise<Court[]> {

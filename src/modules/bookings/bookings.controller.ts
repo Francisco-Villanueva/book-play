@@ -16,7 +16,9 @@ import {
   ApiTags,
 } from '@nestjs/swagger';
 import { BookingsService } from './bookings.service';
+import { BookingPaymentsService } from './booking-payments.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import { UpdateBookingPaymentDto } from './dto/update-booking-payment.dto';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
 import { BusinessAvailabilityQueryDto } from './dto/business-availability-query.dto';
 import { GuestCancellationQueryDto } from './dto/guest-cancellation-query.dto';
@@ -30,7 +32,10 @@ import { BusinessRole } from '../../common/enums';
 @ApiTags('bookings')
 @Controller('businesses/:businessId/bookings')
 export class BookingsController {
-  constructor(private readonly bookingsService: BookingsService) {}
+  constructor(
+    private readonly bookingsService: BookingsService,
+    private readonly bookingPaymentsService: BookingPaymentsService,
+  ) {}
 
   @Post()
   @UseGuards(OptionalJwtAuthGuard)
@@ -40,7 +45,7 @@ export class BookingsController {
   async create(
     @Param('businessId') businessId: string,
     @Body() dto: CreateBookingDto,
-    @Req() req: any,
+    @Req() req: { user?: { id: string } },
   ) {
     const userId = req.user?.id;
     const booking = await this.bookingsService.create(businessId, dto, userId);
@@ -162,5 +167,27 @@ export class BookingsController {
   ) {
     const booking = await this.bookingsService.cancel(bookingId, businessId);
     return booking;
+  }
+
+  @Patch(':bookingId/payment')
+  @UseGuards(JwtAuthGuard, BusinessRolesGuard)
+  @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Record the on-site payment of a booking' })
+  @ApiResponse({ status: 200, description: 'Payment recorded' })
+  @ApiResponse({ status: 400, description: 'Inconsistent payment data' })
+  @ApiResponse({ status: 404, description: 'Booking not found' })
+  async updatePayment(
+    @Param('businessId') businessId: string,
+    @Param('bookingId') bookingId: string,
+    @Body() dto: UpdateBookingPaymentDto,
+    @Req() req: { user: { id: string } },
+  ) {
+    return this.bookingPaymentsService.updatePayment(
+      bookingId,
+      businessId,
+      dto,
+      req.user.id,
+    );
   }
 }

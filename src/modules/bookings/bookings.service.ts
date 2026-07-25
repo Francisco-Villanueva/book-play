@@ -63,7 +63,7 @@ export class BookingsService {
       throw new NotFoundException('Business not found');
     }
 
-    const endTime = this.addMinutesToTime(dto.startTime, business.slotDuration);
+    const endTime = this.addMinutesToTime(dto.startTime, court.slotDuration);
 
     this.validateNoMidnightCrossing(dto.startTime, endTime);
     this.validateNotInPast(dto.date);
@@ -93,8 +93,7 @@ export class BookingsService {
         t,
       );
 
-      const totalPrice =
-        Number(court.pricePerHour) * (business.slotDuration / 60);
+      const totalPrice = Number(court.pricePerSlot);
 
       // Guest bookings (no account) get a cancellation token so the confirmation
       // email can offer a working "cancel" link without requiring login.
@@ -334,16 +333,13 @@ export class BookingsService {
       );
     }
 
-    const business = await this.businessModel.findByPk(businessId);
-    if (!business) throw new NotFoundException('Business not found');
-
     const court = await this.courtModel.findOne({
       where: { id: courtId, businessId },
     });
     if (!court) throw new NotFoundException('Court not found in this business');
 
     const dayOfWeek = new Date(date + 'T12:00:00').getDay();
-    const { slotDuration } = business;
+    const { slotDuration } = court;
 
     // Fetch exceptions that apply to this court: global ones (no court entries)
     // and court-specific ones that explicitly include this court.
@@ -434,13 +430,13 @@ export class BookingsService {
     date: string,
   ): Promise<{
     date: string;
-    slotDuration: number;
     courts: {
       courtId: string;
       name: string;
       sportType: string | null;
       surface: string | null;
-      pricePerHour: number | null;
+      slotDuration: number;
+      pricePerSlot: number | null;
       availableSlots: { startTime: string; endTime: string }[];
       nextAvailable: string | null;
       isFull: boolean;
@@ -473,8 +469,9 @@ export class BookingsService {
           name: court.name,
           sportType: court.sportType ?? null,
           surface: court.surface ?? null,
-          pricePerHour:
-            court.pricePerHour != null ? Number(court.pricePerHour) : null,
+          slotDuration: court.slotDuration,
+          pricePerSlot:
+            court.pricePerSlot != null ? Number(court.pricePerSlot) : null,
           availableSlots,
           nextAvailable: availableSlots[0]?.startTime ?? null,
           isFull: availableSlots.length === 0,
@@ -482,7 +479,7 @@ export class BookingsService {
       }),
     );
 
-    return { date, slotDuration: business.slotDuration, courts: results };
+    return { date, courts: results };
   }
 
   // Returns ExceptionRules that apply to a given court on a given date.

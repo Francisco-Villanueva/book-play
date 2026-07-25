@@ -179,7 +179,8 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
   "phone": "+54 9 11 9876-5432",
   "email": "contacto@complejosur.com",
   "timezone": "America/Argentina/Buenos_Aires",
-  "slotDuration": 60
+  "defaultSlotDuration": 60,
+  "defaultPricePerSlot": 9000
 }
 ```
 
@@ -191,7 +192,12 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 | `phone` | No | String libre |
 | `email` | No | String libre |
 | `timezone` | Si | String no vacio |
-| `slotDuration` | Si | Debe ser 30, 60, 90 o 120 (minutos) |
+| `defaultSlotDuration` | Si | Debe ser 30, 60, 90 o 120 (minutos) |
+| `defaultPricePerSlot` | No | Numero >= 0, hasta 2 decimales |
+
+> `defaultSlotDuration` y `defaultPricePerSlot` son solo los valores que se proponen al
+> crear una cancha nueva. Lo que rige las reservas es `slotDuration` / `pricePerSlot` de
+> cada cancha, y cada una puede tener el suyo.
 
 ### Respuesta exitosa (201)
 
@@ -230,7 +236,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
 | 401 | Sin token o token invalido | No se envia header `Authorization` |
 | 400 | Falta campo requerido | Body sin `name` |
 | 400 | Nombre muy corto | `"name": "AB"` (menos de 3 caracteres) |
-| 400 | slotDuration invalido | `"slotDuration": 45` (no es 30, 60, 90 ni 120) |
+| 400 | defaultSlotDuration invalido | `"defaultSlotDuration": 45` (no es 30, 60, 90 ni 120) |
 | 400 | Falta timezone | Body sin `timezone` |
 
 ---
@@ -317,7 +323,7 @@ curl -X POST http://localhost:3000/businesses \
     "address": "Calle Raqueta 456, CABA",
     "phone": "+54 9 11 5555-0002",
     "timezone": "America/Argentina/Buenos_Aires",
-    "slotDuration": 90
+    "defaultSlotDuration": 90
   }'
 ```
 

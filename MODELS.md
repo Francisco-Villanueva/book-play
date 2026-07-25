@@ -115,7 +115,8 @@ Represents a sports complex (the tenant in multi-tenant architecture).
   phone?: string
   email?: string
   timezone: string (default: 'America/Argentina/Buenos_Aires')
-  slotDuration: integer (minutes, default: 60)
+  defaultSlotDuration: integer (minutes, default: 60) // DB column: slot_duration
+  defaultPricePerSlot?: decimal
   createdAt: timestamp
   updatedAt: timestamp
 }
@@ -129,7 +130,10 @@ Represents a sports complex (the tenant in multi-tenant architecture).
 - Has many `Booking` (indirect via Court)
 
 **Notes**:
-- `slotDuration` defines default booking length (e.g., 60 min, 90 min)
+- `defaultSlotDuration` / `defaultPricePerSlot` are **templates for new courts only**. The
+  values that actually govern bookings live on each `Court`. Changing them never touches
+  existing courts. `defaultSlotDuration` keeps the DB column name `slot_duration` (renaming
+  it under `sequelize.sync({ alter: true })` would drop the data).
 - Timezone important for multi-region support
 - Each business is completely isolated from others
 
@@ -152,7 +156,8 @@ Represents a rentable space (soccer field, paddle court, tennis court, etc.).
   capacity?: integer
   isIndoor: boolean
   hasLighting: boolean
-  pricePerHour?: decimal
+  slotDuration: integer (minutes, required — 30 | 60 | 90 | 120)
+  pricePerSlot?: decimal
   description?: string
   isActive: boolean (allows disabling without deleting)
   createdAt: timestamp
@@ -169,7 +174,16 @@ Represents a rentable space (soccer field, paddle court, tennis court, etc.).
 **Notes**:
 - `sportType` is metadata, doesn't affect logic
 - Same court can be used for multiple sports (e.g., basketball + volleyball)
-- `pricePerHour` can be overridden by time-based pricing (future feature)
+- `slotDuration` is the turno length for **this court**. It governs the availability grid
+  and the `endTime` of every booking on the court. On create it defaults to the owning
+  `business.defaultSlotDuration`; from then on the two are independent. Changing it only
+  affects new bookings — existing ones keep their stored `startTime`/`endTime`.
+- `pricePerSlot` is the price of one turno (one booking = one `court.slotDuration`-long
+  slot), not an hourly rate — a booking's `totalPrice` is `court.pricePerSlot` directly,
+  with no duration math. On create it defaults to `business.defaultPricePerSlot`. DB column
+  is still named `price_per_hour` (kept to avoid an unmanaged rename under
+  `sequelize.sync({ alter: true })`); it stores the per-slot price.
+- Time-based pricing (e.g. a different price at peak hours) is a future feature
 
 ---
 
@@ -200,6 +214,15 @@ Represents a reservation of a court for a specific time slot.
   
   totalPrice?: decimal
   notes?: string
+
+  // Cobro presencial del turno (BR-025). Independiente de `status`.
+  paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID'   // default UNPAID
+  amountPaid?: decimal
+  totalPlayers?: integer
+  playersPaid?: integer
+  paymentNotes?: string
+  paymentRecordedBy?: UUID       // User que registró el cobro (auditoría, sin FK)
+  paymentRecordedAt?: timestamp
   
   createdAt: timestamp
   updatedAt: timestamp

@@ -1,6 +1,7 @@
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsBoolean,
+  IsIn,
   IsInt,
   IsNotEmpty,
   IsNumber,
@@ -41,11 +42,25 @@ export class CreateCourtDto {
   @IsBoolean()
   hasLighting?: boolean;
 
-  @ApiPropertyOptional({ example: 20.0, minimum: 0 })
+  @ApiPropertyOptional({
+    enum: [30, 60, 90, 120],
+    example: 60,
+    description:
+      'Duración del turno en minutos. Si se omite, se toma la del negocio',
+  })
+  @IsOptional()
+  @IsIn([30, 60, 90, 120])
+  slotDuration?: number;
+
+  @ApiPropertyOptional({
+    example: 9000.0,
+    minimum: 0,
+    description: 'Precio por turno (no por hora)',
+  })
   @IsOptional()
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
-  pricePerHour?: number;
+  pricePerSlot?: number;
 
   @ApiPropertyOptional({ example: 'Standard padel court with glass walls' })
   @IsOptional()
