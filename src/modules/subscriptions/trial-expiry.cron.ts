@@ -12,10 +12,18 @@ import { Business } from '../businesses/entities/business.model';
 import { BusinessRole, SubscriptionStatus } from '../../common/enums';
 import { FeatureActivationService } from './feature-activation.service';
 import { MailService } from '../mail/mail.service';
+import {
+  DAY_MS,
+  PAST_DUE_GRACE_DAYS,
+  resolveExpiresAt,
+} from './subscription-access';
 
-const PAST_DUE_GRACE_DAYS = 7;
-const TRIAL_ENDING_NOTICE_DAYS = 3;
-const DAY_MS = 24 * 60 * 60 * 1000;
+// Hitos de aviso previo al vencimiento, del más lejano al más cercano.
+const EXPIRY_NOTICE_DAYS = [10, 5, 1] as const;
+
+// Recordatorios posteriores al bloqueo, en días desde que quedó en solo lectura.
+// El de 330 avisa la anonimización de datos de invitados con 30 días de margen.
+const SUSPENDED_NOTICE_DAYS = [0, 30, 90, 330] as const;
 
 @Injectable()
 export class TrialExpiryCron {
@@ -34,45 +42,101 @@ export class TrialExpiryCron {
   async handleExpirations(): Promise<void> {
     const now = new Date();
 
-    await this.notifyEndingTrials(now);
+    await this.notifyUpcomingExpiry(now);
     await this.suspendExpiredTrials(now);
     await this.markUnrenewedAsPastDue(now);
     await this.suspendPastDueOverGrace(now);
     await this.finalizeCancelledAtPeriodEnd(now);
+    await this.notifySuspended(now);
   }
 
-  // Avisa al OWNER cuando el trial está por vencer (dentro de N días) y todavía no
-  // se notificó. El flag trialEndingNotifiedAt evita reenviar en cada corrida.
-  private async notifyEndingTrials(now: Date): Promise<void> {
-    const threshold = new Date(
-      now.getTime() + TRIAL_ENDING_NOTICE_DAYS * DAY_MS,
-    );
-    const ending = await this.subscriptionModel.findAll({
+  // Avisa al OWNER a los 10, 5 y 1 día del vencimiento, sirva el trial o el
+  // período pago. Guardar el hito enviado (y no un booleano) es lo que permite
+  // escalar el tono sin repetir el mismo correo en cada corrida horaria.
+  private async notifyUpcomingExpiry(now: Date): Promise<void> {
+    const active = await this.subscriptionModel.findAll({
       where: {
-        status: SubscriptionStatus.TRIALING,
-        trialEndingNotifiedAt: null,
-        trialEndsAt: { [Op.gt]: now, [Op.lte]: threshold },
+        status: {
+          [Op.in]: [
+            SubscriptionStatus.TRIALING,
+            SubscriptionStatus.ACTIVE,
+            SubscriptionStatus.PAST_DUE,
+          ],
+        },
       },
     });
-    for (const subscription of ending) {
+
+    for (const subscription of active) {
+      const expiresAt = resolveExpiresAt(subscription);
+      if (!expiresAt) continue;
+
+      const daysLeft = Math.ceil(
+        (expiresAt.getTime() - now.getTime()) / DAY_MS,
+      );
+      const milestone = EXPIRY_NOTICE_DAYS.find((d) => daysLeft <= d);
+      if (milestone === undefined) continue;
+
+      const alreadySent = subscription.lastExpiryNoticeDays;
+      if (alreadySent !== null && alreadySent <= milestone) continue;
+
       const recipient = await this.resolveOwner(subscription.businessId);
       if (recipient) {
-        const daysLeft = Math.max(
-          1,
-          Math.ceil(
-            (subscription.trialEndsAt.getTime() - now.getTime()) / DAY_MS,
-          ),
-        );
-        await this.mailService.sendTrialEnding({
+        await this.mailService.sendSubscriptionExpiring({
           to: recipient.email,
           recipientName: recipient.name,
           businessName: recipient.businessName,
-          trialEndsAt: subscription.trialEndsAt,
-          daysLeft,
+          expiresAt,
+          daysLeft: Math.max(0, daysLeft),
+          reason:
+            subscription.status === SubscriptionStatus.TRIALING
+              ? 'trial'
+              : 'subscription',
           businessId: subscription.businessId,
         });
       }
-      await subscription.update({ trialEndingNotifiedAt: now });
+      await subscription.update({ lastExpiryNoticeDays: milestone });
+    }
+  }
+
+  // Recordatorios de reconversión mientras el complejo sigue en solo lectura.
+  // CANCELLED entra igual: el acceso está bloqueado del mismo modo y el reloj
+  // de retención corre para ambos.
+  private async notifySuspended(now: Date): Promise<void> {
+    const locked = await this.subscriptionModel.findAll({
+      where: {
+        status: {
+          [Op.in]: [SubscriptionStatus.SUSPENDED, SubscriptionStatus.CANCELLED],
+        },
+        suspendedAt: { [Op.not]: null },
+      },
+    });
+
+    for (const subscription of locked) {
+      const suspendedAt = subscription.suspendedAt;
+      if (!suspendedAt) continue;
+
+      const daysSuspended = Math.floor(
+        (now.getTime() - suspendedAt.getTime()) / DAY_MS,
+      );
+      const milestone = [...SUSPENDED_NOTICE_DAYS]
+        .reverse()
+        .find((d) => daysSuspended >= d);
+      if (milestone === undefined) continue;
+
+      const alreadySent = subscription.lastSuspendedNoticeDays;
+      if (alreadySent !== null && alreadySent >= milestone) continue;
+
+      const recipient = await this.resolveOwner(subscription.businessId);
+      if (recipient) {
+        await this.mailService.sendSubscriptionSuspended({
+          to: recipient.email,
+          recipientName: recipient.name,
+          businessName: recipient.businessName,
+          daysSuspended: milestone,
+          businessId: subscription.businessId,
+        });
+      }
+      await subscription.update({ lastSuspendedNoticeDays: milestone });
     }
   }
 
@@ -109,9 +173,12 @@ export class TrialExpiryCron {
       },
     });
     for (const subscription of unrenewed) {
+      // El vencimiento efectivo pasa a ser el fin de la gracia, así que la
+      // escalada de avisos arranca de cero sobre esa nueva fecha.
       await subscription.update({
         status: SubscriptionStatus.PAST_DUE,
         pastDueAt: now,
+        lastExpiryNoticeDays: null,
       });
       this.logger.log(
         `Period ended without renewal, marked past-due for business ${subscription.businessId}`,
@@ -142,7 +209,7 @@ export class TrialExpiryCron {
 
   private async suspendPastDueOverGrace(now: Date): Promise<void> {
     const graceDeadline = new Date(
-      now.getTime() - PAST_DUE_GRACE_DAYS * 24 * 60 * 60 * 1000,
+      now.getTime() - PAST_DUE_GRACE_DAYS * DAY_MS,
     );
     const overdue = await this.subscriptionModel.findAll({
       where: {
@@ -173,7 +240,12 @@ export class TrialExpiryCron {
       },
     });
     for (const subscription of toCancel) {
-      await subscription.update({ status: SubscriptionStatus.CANCELLED });
+      // suspendedAt marca "desde cuándo quedó en solo lectura", que es lo que
+      // mide el reloj de retención — vale igual para una baja voluntaria.
+      await subscription.update({
+        status: SubscriptionStatus.CANCELLED,
+        suspendedAt: now,
+      });
       await this.featureActivationService.deactivatePlanFeatures(
         subscription.businessId,
       );

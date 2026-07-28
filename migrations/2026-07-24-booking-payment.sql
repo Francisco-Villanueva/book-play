@@ -1,6 +1,7 @@
 -- BR-025: registro del cobro presencial de un turno.
--- Aditiva y reejecutable. Sequelize corre sync() sin `alter`, así que las columnas
--- nuevas no se crean solas: hay que aplicar este script en cada base.
+-- Aditiva y reejecutable. Aplicar en cada base: aunque hoy `database.provider.ts` corre
+-- sync({ alter: true }) y terminaría creando las columnas solas, eso es justamente lo que
+-- INFRA-02 busca eliminar — el esquema se versiona acá, no en el arranque.
 
 DO $$ BEGIN
   CREATE TYPE "enum_bookings_payment_status" AS ENUM ('UNPAID', 'PARTIAL', 'PAID');

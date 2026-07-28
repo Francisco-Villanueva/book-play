@@ -18,8 +18,12 @@ import { ReactivateSuspendedDto } from './dto/reactivate-suspended.dto';
 import { ListTransactionsQueryDto } from './dto/list-transactions-query.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { MasterGuard } from '../../common/guards/master.guard';
+import { AllowWhenReadOnly } from '../../common/decorators/allow-read-only.decorator';
 
 @ApiTags('master')
+// MasterGuard runs after the global read-only guard, which cannot see the role
+// yet — the SaaS admin has to exempt itself here or it could not lift a suspension.
+@AllowWhenReadOnly()
 @Controller('master')
 @UseGuards(JwtAuthGuard, MasterGuard)
 @ApiBearerAuth()

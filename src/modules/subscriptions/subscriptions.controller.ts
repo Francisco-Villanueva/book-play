@@ -18,9 +18,12 @@ import { CreateCheckoutDto } from './dto/create-checkout.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessRolesGuard } from '../../common/guards/business-roles.guard';
 import { BusinessRoles } from '../../common/decorators/business-roles.decorator';
+import { AllowWhenReadOnly } from '../../common/decorators/allow-read-only.decorator';
 import { BusinessRole } from '../../common/enums';
 
 @ApiTags('subscriptions')
+// Paying is the way out of the lock — never block it.
+@AllowWhenReadOnly()
 @Controller('businesses/:businessId/subscription')
 export class SubscriptionsController {
   constructor(private readonly subscriptionsService: SubscriptionsService) {}
@@ -30,9 +33,25 @@ export class SubscriptionsController {
   @BusinessRoles(BusinessRole.OWNER)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get the current subscription for a business' })
-  @ApiResponse({ status: 200, description: 'Subscription with plan' })
+  @ApiResponse({
+    status: 200,
+    description: 'Subscription with plan and derived access level',
+  })
   async findOne(@Param('businessId') businessId: string) {
-    return this.subscriptionsService.findByBusiness(businessId);
+    return this.subscriptionsService.findByBusinessWithAccess(businessId);
+  }
+
+  // Billing details stay OWNER-only, but every role needs to know the complex is
+  // about to go read-only — an ADMIN finding the app frozen with no prior warning
+  // is a product failure. This exposes the countdown and nothing else.
+  @Get('access')
+  @UseGuards(JwtAuthGuard, BusinessRolesGuard)
+  @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Access level and expiry countdown for a business' })
+  @ApiResponse({ status: 200, description: 'Access summary' })
+  async access(@Param('businessId') businessId: string) {
+    return this.subscriptionsService.getAccess(businessId);
   }
 
   @Get('payments')

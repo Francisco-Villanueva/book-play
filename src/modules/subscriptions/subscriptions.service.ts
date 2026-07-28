@@ -13,6 +13,7 @@ import { Subscription } from './entities/subscription.model';
 import { Plan } from '../plans/entities/plan.model';
 import { Payment } from './entities/payment.model';
 import { MercadoPagoService } from '../mercadopago/mercadopago.service';
+import { resolveAccess, SubscriptionAccess } from './subscription-access';
 
 @Injectable()
 export class SubscriptionsService {
@@ -35,6 +36,20 @@ export class SubscriptionsService {
       throw new NotFoundException('Subscription not found');
     }
     return subscription;
+  }
+
+  // The client should never have to re-derive access from the status enum: the
+  // reason a business is locked is irrelevant to the UI, only the level is.
+  async findByBusinessWithAccess(
+    businessId: string,
+  ): Promise<Record<string, unknown> & SubscriptionAccess> {
+    const subscription = await this.findByBusiness(businessId);
+    const plain: Record<string, unknown> = subscription.toJSON();
+    return { ...plain, ...resolveAccess(subscription) };
+  }
+
+  async getAccess(businessId: string): Promise<SubscriptionAccess> {
+    return resolveAccess(await this.findByBusiness(businessId));
   }
 
   async listPayments(businessId: string): Promise<Payment[]> {

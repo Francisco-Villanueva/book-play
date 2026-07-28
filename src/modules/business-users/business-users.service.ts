@@ -217,6 +217,7 @@ export class BusinessUsersService {
       include: [
         {
           model: User,
+          as: 'user',
           attributes: ['id', 'name', 'email', 'userName'],
         },
       ],

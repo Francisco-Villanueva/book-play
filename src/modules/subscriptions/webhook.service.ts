@@ -179,6 +179,8 @@ export class WebhookService {
             cancelledAt: null,
             currentPeriodStart: now,
             currentPeriodEnd,
+            lastExpiryNoticeDays: null,
+            lastSuspendedNoticeDays: null,
           },
           { transaction },
         );

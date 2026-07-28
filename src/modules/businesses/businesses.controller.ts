@@ -25,6 +25,7 @@ import { UpdateBusinessDto } from './dto/update-business.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessRolesGuard } from '../../common/guards/business-roles.guard';
 import { BusinessRoles } from '../../common/decorators/business-roles.decorator';
+import { AllowWhenReadOnly } from '../../common/decorators/allow-read-only.decorator';
 import { BusinessRole } from '../../common/enums';
 
 @ApiTags('businesses')
@@ -124,6 +125,9 @@ export class BusinessesController {
     };
   }
 
+  // Allowed while read-only: an owner who walked away keeps the right to erase
+  // their data without having to pay first.
+  @AllowWhenReadOnly()
   @UseGuards(JwtAuthGuard, BusinessRolesGuard)
   @BusinessRoles(BusinessRole.OWNER)
   @ApiBearerAuth()

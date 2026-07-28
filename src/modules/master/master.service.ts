@@ -95,7 +95,9 @@ export class MasterService {
       timezone: raw.timezone,
       defaultSlotDuration: raw.defaultSlotDuration,
       defaultPricePerSlot:
-        raw.defaultPricePerSlot != null ? Number(raw.defaultPricePerSlot) : null,
+        raw.defaultPricePerSlot != null
+          ? Number(raw.defaultPricePerSlot)
+          : null,
       createdAt: raw.createdAt,
       updatedAt: raw.updatedAt,
       courts: (raw.courts as any[]).map((c) => ({

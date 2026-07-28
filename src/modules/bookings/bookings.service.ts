@@ -5,7 +5,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Op, Transaction } from 'sequelize';
+import { Op, Transaction, WhereOptions } from 'sequelize';
 import { Sequelize } from 'sequelize-typescript';
 import * as crypto from 'crypto';
 import {
@@ -14,7 +14,10 @@ import {
   BUSINESS_REPOSITORY,
   AVAILABILITY_RULE_REPOSITORY,
   EXCEPTION_RULE_REPOSITORY,
+  SUBSCRIPTION_REPOSITORY,
 } from '../database/constants/repositories.constants';
+import { Subscription } from '../subscriptions/entities/subscription.model';
+import { isReadOnly } from '../subscriptions/subscription-access';
 import { Booking } from './entities/booking.model';
 import { Court } from '../courts/entities/court.model';
 import { Business } from '../businesses/entities/business.model';
@@ -22,8 +25,24 @@ import { AvailabilityRule } from '../availability-rules/entities/availability-ru
 import { ExceptionRule } from '../exception-rules/entities/exception-rule.model';
 import { BookingStatus } from '../../common/enums';
 import { CreateBookingDto } from './dto/create-booking.dto';
+import {
+  BOOKINGS_PAGE_SIZE_DEFAULT,
+  BOOKINGS_PAGE_SIZE_MAX,
+  ListBookingsQueryDto,
+} from './dto/list-bookings-query.dto';
+import { User } from '../users/entities/user.model';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
+
+export interface PaginatedBookings {
+  data: Booking[];
+  meta: {
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  };
+}
 
 @Injectable()
 export class BookingsService {
@@ -38,6 +57,8 @@ export class BookingsService {
     private readonly availabilityRuleModel: typeof AvailabilityRule,
     @Inject(EXCEPTION_RULE_REPOSITORY)
     private readonly exceptionRuleModel: typeof ExceptionRule,
+    @Inject(SUBSCRIPTION_REPOSITORY)
+    private readonly subscriptionModel: typeof Subscription,
     @Inject('SEQUELIZE')
     private readonly sequelize: Sequelize,
     private readonly usersService: UsersService,
@@ -142,15 +163,95 @@ export class BookingsService {
     }
   }
 
-  async findAllByBusiness(businessId: string): Promise<Booking[]> {
-    return this.bookingModel.findAll({
-      where: { businessId },
-      include: [{ model: Court, as: 'court' }],
-      order: [
-        ['date', 'ASC'],
-        ['startTime', 'ASC'],
+  async findAllByBusiness(
+    businessId: string,
+    query: ListBookingsQueryDto = {},
+  ): Promise<PaginatedBookings> {
+    const page = query.page ?? 1;
+    const limit = Math.min(
+      query.limit ?? BOOKINGS_PAGE_SIZE_DEFAULT,
+      BOOKINGS_PAGE_SIZE_MAX,
+    );
+    const direction = query.sort === 'desc' ? 'DESC' : 'ASC';
+
+    const { rows, count } = await this.bookingModel.findAndCountAll({
+      where: this.buildBookingFilters(businessId, query),
+      include: [
+        { model: Court, as: 'court' },
+        { model: User, as: 'user', attributes: ['id', 'name', 'email'] },
       ],
+      order: [
+        ['date', direction],
+        ['startTime', direction],
+        // Desempate estable: dos canchas pueden tener el mismo date+startTime y
+        // sin este criterio la misma reserva puede repetirse o saltearse entre páginas.
+        ['id', direction],
+      ],
+      limit,
+      offset: (page - 1) * limit,
+      // Los `$court.name$` / `$user.name$` del buscador viven en el WHERE externo,
+      // que la subquery de paginación de Sequelize no alcanza. Ambos includes son
+      // belongsTo (no multiplican filas), así que el count sigue siendo exacto.
+      subQuery: false,
+      distinct: true,
     });
+
+    return {
+      data: rows,
+      meta: {
+        total: count,
+        page,
+        limit,
+        totalPages: limit > 0 ? Math.ceil(count / limit) : 0,
+      },
+    };
+  }
+
+  private buildBookingFilters(
+    businessId: string,
+    query: ListBookingsQueryDto,
+  ): WhereOptions {
+    const where: Record<string | symbol, unknown> = { businessId };
+
+    const from = query.date ?? query.dateFrom;
+    const to = query.date ?? query.dateTo;
+    if (from && to) {
+      if (from > to) {
+        throw new BadRequestException('dateFrom cannot be after dateTo');
+      }
+      where.date = { [Op.between]: [from, to] };
+    } else if (from) {
+      where.date = { [Op.gte]: from };
+    } else if (to) {
+      where.date = { [Op.lte]: to };
+    }
+
+    if (query.courtId) where.courtId = query.courtId;
+    if (query.status) where.status = query.status;
+    if (query.paymentStatus?.length) {
+      where.paymentStatus = { [Op.in]: query.paymentStatus };
+    }
+
+    const term = query.q?.trim();
+    if (term) {
+      const pattern = `%${this.escapeLikePattern(term)}%`;
+      where[Op.or] = [
+        { guestName: { [Op.iLike]: pattern } },
+        { guestPhone: { [Op.iLike]: pattern } },
+        { guestEmail: { [Op.iLike]: pattern } },
+        { '$user.name$': { [Op.iLike]: pattern } },
+        { '$user.email$': { [Op.iLike]: pattern } },
+        { '$court.name$': { [Op.iLike]: pattern } },
+      ];
+    }
+
+    return where as WhereOptions;
+  }
+
+  // Sin esto, un '%' tipeado en el buscador matchea todo y un '_' matchea
+  // cualquier caracter — el usuario espera búsqueda literal, no comodines.
+  private escapeLikePattern(value: string): string {
+    return value.replace(/[\\%_]/g, (char) => `\\${char}`);
   }
 
   async findAllByUser(userId: string): Promise<Booking[]> {
@@ -324,6 +425,7 @@ export class BookingsService {
     date: string;
     courtId: string;
     slotDuration: number;
+    acceptsBookings: boolean;
     availableSlots: { startTime: string; endTime: string }[];
   }> {
     const today = this.todayLocalISO();
@@ -337,6 +439,11 @@ export class BookingsService {
       where: { id: courtId, businessId },
     });
     if (!court) throw new NotFoundException('Court not found in this business');
+
+    // Los slots reales se devuelven igual aunque el complejo esté bloqueado: el
+    // panel del propio complejo usa este endpoint para leer su agenda. Es la
+    // pantalla pública la que, con este flag, los muestra como no disponibles.
+    const acceptsBookings = await this.acceptsBookings(businessId);
 
     const dayOfWeek = new Date(date + 'T12:00:00').getDay();
     const { slotDuration } = court;
@@ -360,7 +467,13 @@ export class BookingsService {
       if (!exc.isAvailable) {
         if (!exStart || !exEnd) {
           // Full-day block — entire day is closed for this court
-          return { date, courtId, slotDuration, availableSlots: [] };
+          return {
+            date,
+            courtId,
+            slotDuration,
+            acceptsBookings,
+            availableSlots: [],
+          };
         }
         blockedRanges.push({ start: exStart, end: exEnd });
       } else if (exStart && exEnd) {
@@ -383,7 +496,13 @@ export class BookingsService {
         ],
       });
       if (rules.length === 0) {
-        return { date, courtId, slotDuration, availableSlots: [] };
+        return {
+          date,
+          courtId,
+          slotDuration,
+          acceptsBookings,
+          availableSlots: [],
+        };
       }
       openWindows = rules.map((r) => ({
         start: this.normalizeTime(r.startTime),
@@ -419,7 +538,15 @@ export class BookingsService {
       }
     }
 
-    return { date, courtId, slotDuration, availableSlots };
+    return { date, courtId, slotDuration, acceptsBookings, availableSlots };
+  }
+
+  private async acceptsBookings(businessId: string): Promise<boolean> {
+    const subscription = await this.subscriptionModel.findOne({
+      where: { businessId },
+      attributes: ['status'],
+    });
+    return !subscription || !isReadOnly(subscription.status);
   }
 
   // Business-wide availability for a date: one call returning every active
@@ -430,6 +557,7 @@ export class BookingsService {
     date: string,
   ): Promise<{
     date: string;
+    acceptsBookings: boolean;
     courts: {
       courtId: string;
       name: string;
@@ -479,7 +607,11 @@ export class BookingsService {
       }),
     );
 
-    return { date, courts: results };
+    return {
+      date,
+      acceptsBookings: await this.acceptsBookings(businessId),
+      courts: results,
+    };
   }
 
   // Returns ExceptionRules that apply to a given court on a given date.

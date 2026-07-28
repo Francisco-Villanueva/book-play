@@ -12,10 +12,12 @@ import {
   paymentReceiptEmail,
   paymentRejectedEmail,
   subscriptionConfirmationEmail,
-  trialEndingEmail,
+  subscriptionExpiringEmail,
+  subscriptionSuspendedEmail,
   welcomeOwnerEmail,
   welcomePlayerEmail,
 } from './templates';
+import type { ExpiryReason } from './templates';
 
 @Injectable()
 export class MailService {
@@ -238,22 +240,43 @@ export class MailService {
     );
   }
 
-  async sendTrialEnding(params: {
+  async sendSubscriptionExpiring(params: {
     to: string;
     recipientName: string;
     businessName: string;
-    trialEndsAt: Date;
+    expiresAt: Date;
     daysLeft: number;
+    reason: ExpiryReason;
     businessId: string;
   }): Promise<void> {
     await this.sendSafe(
       params.to,
-      trialEndingEmail({
+      subscriptionExpiringEmail({
         recipientName: params.recipientName,
         businessName: params.businessName,
-        trialEndsAt: params.trialEndsAt,
+        expiresAt: params.expiresAt,
         daysLeft: params.daysLeft,
-        upgradeUrl: this.url(`/admin/${params.businessId}/settings`),
+        reason: params.reason,
+        upgradeUrl: this.url(`/admin/${params.businessId}/upgrade`),
+        logoUrl: this.logoUrl,
+      }),
+    );
+  }
+
+  async sendSubscriptionSuspended(params: {
+    to: string;
+    recipientName: string;
+    businessName: string;
+    daysSuspended: number;
+    businessId: string;
+  }): Promise<void> {
+    await this.sendSafe(
+      params.to,
+      subscriptionSuspendedEmail({
+        recipientName: params.recipientName,
+        businessName: params.businessName,
+        daysSuspended: params.daysSuspended,
+        upgradeUrl: this.url(`/admin/${params.businessId}/upgrade`),
         logoUrl: this.logoUrl,
       }),
     );

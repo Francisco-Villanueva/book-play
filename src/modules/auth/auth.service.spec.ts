@@ -3,15 +3,29 @@ import { JwtService } from '@nestjs/jwt';
 import { UnauthorizedException } from '@nestjs/common';
 import { AuthService } from './auth.service';
 import { UsersService } from '../users/users.service';
+import { MailService } from '../mail/mail.service';
+import { PASSWORD_RESET_TOKEN_REPOSITORY } from '../database/constants/repositories.constants';
 
 describe('AuthService', () => {
   let service: AuthService;
   const mockUsersService = {
     create: jest.fn(),
     findByUsernameOrEmail: jest.fn(),
+    findByEmail: jest.fn(),
+    findById: jest.fn(),
+    setPassword: jest.fn(),
     validatePassword: jest.fn(),
   };
   const mockJwtService = { sign: jest.fn().mockReturnValue('jwt-token') };
+  const mockMailService = {
+    sendWelcomePlayer: jest.fn(),
+    sendPasswordReset: jest.fn(),
+    sendPasswordChanged: jest.fn(),
+  };
+  const mockPasswordResetTokenModel = {
+    create: jest.fn(),
+    findOne: jest.fn(),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -19,6 +33,11 @@ describe('AuthService', () => {
         AuthService,
         { provide: UsersService, useValue: mockUsersService },
         { provide: JwtService, useValue: mockJwtService },
+        { provide: MailService, useValue: mockMailService },
+        {
+          provide: PASSWORD_RESET_TOKEN_REPOSITORY,
+          useValue: mockPasswordResetTokenModel,
+        },
       ],
     }).compile();
 

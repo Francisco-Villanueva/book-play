@@ -20,6 +20,7 @@ import { BookingPaymentsService } from './booking-payments.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
 import { UpdateBookingPaymentDto } from './dto/update-booking-payment.dto';
 import { AvailabilityQueryDto } from './dto/availability-query.dto';
+import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
 import { BusinessAvailabilityQueryDto } from './dto/business-availability-query.dto';
 import { GuestCancellationQueryDto } from './dto/guest-cancellation-query.dto';
 import { CancelGuestBookingDto } from './dto/cancel-guest-booking.dto';
@@ -27,6 +28,7 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { OptionalJwtAuthGuard } from '../../common/guards/optional-jwt-auth.guard';
 import { BusinessRolesGuard } from '../../common/guards/business-roles.guard';
 import { BusinessRoles } from '../../common/decorators/business-roles.decorator';
+import { AllowWhenReadOnly } from '../../common/decorators/allow-read-only.decorator';
 import { BusinessRole } from '../../common/enums';
 
 @ApiTags('bookings')
@@ -88,11 +90,16 @@ export class BookingsController {
   @UseGuards(JwtAuthGuard, BusinessRolesGuard)
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
   @ApiBearerAuth()
-  @ApiOperation({ summary: 'List all bookings for a business' })
-  @ApiResponse({ status: 200, description: 'List of bookings' })
-  async findAll(@Param('businessId') businessId: string) {
-    const bookings = await this.bookingsService.findAllByBusiness(businessId);
-    return bookings;
+  @ApiOperation({
+    summary: 'List bookings for a business (filtered and paginated)',
+  })
+  @ApiResponse({ status: 200, description: 'Page of bookings plus meta' })
+  @ApiResponse({ status: 400, description: 'Invalid filter or page params' })
+  async findAll(
+    @Param('businessId') businessId: string,
+    @Query() query: ListBookingsQueryDto,
+  ) {
+    return this.bookingsService.findAllByBusiness(businessId, query);
   }
 
   @Get(':bookingId')
@@ -133,6 +140,7 @@ export class BookingsController {
   }
 
   @Patch(':bookingId/guest-cancellation')
+  @AllowWhenReadOnly()
   @ApiOperation({
     summary:
       'Cancel a guest booking from the email link (public, validated by token)',
@@ -154,7 +162,10 @@ export class BookingsController {
     );
   }
 
+  // Cancelling stays open while read-only so an expired complex can still free
+  // up slots it will not honour, and players are not left with dead bookings.
   @Patch(':bookingId/cancel')
+  @AllowWhenReadOnly()
   @UseGuards(JwtAuthGuard, BusinessRolesGuard)
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
   @ApiBearerAuth()
@@ -169,7 +180,10 @@ export class BookingsController {
     return booking;
   }
 
+  // Bookings made before the lock are still played and still paid at the counter;
+  // the complex has to be able to record that money.
   @Patch(':bookingId/payment')
+  @AllowWhenReadOnly()
   @UseGuards(JwtAuthGuard, BusinessRolesGuard)
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
   @ApiBearerAuth()

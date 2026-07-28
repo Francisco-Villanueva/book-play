@@ -59,9 +59,17 @@ export class Subscription extends Model {
   @Column({ type: DataType.DATE, field: 'cancelled_at' })
   declare cancelledAt: Date | null;
 
-  // Marca el envío del aviso "fin de trial próximo" para no reenviarlo cada hora.
-  @Column({ type: DataType.DATE, field: 'trial_ending_notified_at' })
-  declare trialEndingNotifiedAt: Date | null;
+  // Último hito de aviso previo al vencimiento ya enviado (10 | 5 | 1 días).
+  // Guardar el hito en vez de un booleano permite escalar los avisos sin
+  // repetirlos: se manda el hito X sólo si el último enviado fue mayor.
+  // Se resetea al renovar.
+  @Column({ type: DataType.INTEGER, field: 'last_expiry_notice_days' })
+  declare lastExpiryNoticeDays: number | null;
+
+  // Mismo mecanismo para los recordatorios posteriores a la suspensión,
+  // medidos en días transcurridos desde suspendedAt (30 | 90 | 330).
+  @Column({ type: DataType.INTEGER, field: 'last_suspended_notice_days' })
+  declare lastSuspendedNoticeDays: number | null;
 
   declare business: Business;
   declare plan: Plan | null;

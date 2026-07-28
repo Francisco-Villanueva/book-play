@@ -1,6 +1,9 @@
 import { Module } from '@nestjs/common';
+import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { SubscriptionAccessGuard } from './common/guards/subscription-access.guard';
+import { subscriptionProvider } from './modules/subscriptions/subscription.provider';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './modules/auth/auth.module';
@@ -36,6 +39,10 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
     SubscriptionsModule,
   ],
   controllers: [AppController],
-  providers: [AppService],
+  providers: [
+    AppService,
+    ...subscriptionProvider,
+    { provide: APP_GUARD, useClass: SubscriptionAccessGuard },
+  ],
 })
 export class AppModule {}

@@ -12,6 +12,7 @@ import { AvailabilityRulesModule } from '../availability-rules/availability-rule
 import { ExceptionRulesModule } from '../exception-rules/exception-rules.module';
 import { UsersModule } from '../users/users.module';
 import { MailModule } from '../mail/mail.module';
+import { subscriptionProvider } from '../subscriptions/subscription.provider';
 
 @Module({
   imports: [
@@ -25,7 +26,12 @@ import { MailModule } from '../mail/mail.module';
     MailModule,
   ],
   controllers: [BookingsController, MyBookingsController],
-  providers: [BookingsService, BookingPaymentsService, ...bookingProvider],
+  providers: [
+    BookingsService,
+    BookingPaymentsService,
+    ...bookingProvider,
+    ...subscriptionProvider,
+  ],
   exports: [BookingsService, ...bookingProvider],
 })
 export class BookingsModule {}

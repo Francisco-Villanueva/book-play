@@ -291,6 +291,51 @@ conditions or invalidates BR-001 / BR-003 — it is bookkeeping, not a gate.
 **Not covered (BR-020 still holds)**: there is no online payment for court time. This
 records money collected at the venue.
 
+### BR-026: Expired Subscription Means Read-Only, Not Shut Down
+**Rule**: A business whose subscription is `SUSPENDED` or `CANCELLED` keeps **full read
+access** to all of its data and loses **every write** except an explicit whitelist. The
+reason it got there (trial expired, unpaid renewal, voluntary cancellation) is irrelevant
+— the API exposes a derived `accessLevel: 'FULL' | 'READ_ONLY'` and nothing else.
+
+- **Allowed while read-only** (each entry is a product decision, not an oversight):
+  - Cancelling a booking — by the venue, by the player, or by a guest via the email
+    token. People who already reserved must never be stranded by a billing problem.
+  - Recording the on-site payment of an existing booking. Those bookings are still
+    played and still paid at the counter; the money has to be recordable.
+  - Everything under `/businesses/:id/subscription/*`. Paying is the way out of the
+    lock, so it can never be blocked.
+  - Deleting the business (`OWNER` only). Erasing your own data must not require paying
+    first.
+- **Blocked**: creating bookings (including the public player-facing flow), courts,
+  availability rules, exception rules, members and invitations, and editing the business.
+- **Existing bookings are never touched.** Suspension stops the business going forward;
+  it never cancels, alters or hides a reservation that already exists.
+- **Enforcement is default-deny**: a global guard blocks every mutating route carrying a
+  `:businessId`, and a route opts out with `@AllowWhenReadOnly()`. A new mutating
+  endpoint is therefore locked until someone decides otherwise.
+- **A missing subscription row grants full access** (fail-open) and logs a warning. Never
+  lock out a paying customer over a data gap.
+- **The player is never told why.** Availability endpoints return the real slots plus
+  `acceptsBookings: false`; the public screen renders the complex as having no
+  availability. The venue's commercial situation is not the player's business.
+
+### BR-027: Expiry Is Announced Before It Happens
+**Rule**: The owner is warned at **10, 5 and 1 day** before access is lost, both in the
+app and by email, with the tone escalating at each step. After the lock, reminders go out
+at **30, 90 and 330 days**.
+
+- The expiry date is unified across states: `trialEndsAt` while trialing,
+  `currentPeriodEnd` while active, and `pastDueAt + 7 days` while past due — during the
+  grace window the paid period is already over, so it is the grace deadline that counts.
+- In-app the warning is visible to `OWNER`, `ADMIN` and `STAFF`; only the `OWNER` gets
+  the payment CTA. Staff discovering the app frozen with no prior notice is a product
+  failure, not an access-control feature.
+- Emails go to the `OWNER` only.
+- **Retention**: read-only is held for **12 months**. At 12 months the guests' contact
+  details (name, phone, email) on past bookings are anonymised; courts, schedules and
+  booking history are kept. Full deletion only ever happens at the owner's request.
+  The 330-day reminder is the 30-day notice for that anonymisation.
+
 ---
 
 ## ⚠️ Critical Validations
