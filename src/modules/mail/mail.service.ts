@@ -6,7 +6,10 @@ import {
   RenderedEmail,
   bookingCancellationEmail,
   bookingConfirmationEmail,
+  bookingSuspendedEmail,
   businessInvitationEmail,
+  recurringBookingConfirmationEmail,
+  recurringBookingEndedEmail,
   passwordChangedEmail,
   passwordResetEmail,
   paymentReceiptEmail,
@@ -171,6 +174,97 @@ export class MailService {
         date: params.date,
         startTime: params.startTime,
         endTime: params.endTime,
+        rebookUrl: this.url(`/businesses/${params.businessId}/book`),
+        logoUrl: this.logoUrl,
+      }),
+    );
+  }
+
+  async sendRecurringBookingConfirmation(params: {
+    to: string;
+    recipientName: string;
+    businessName: string;
+    courtName: string;
+    dayOfWeek: number;
+    startTime: string;
+    endTime: string;
+    price: number;
+    dates: string[];
+    businessId: string;
+    seriesId: string;
+    manageToken?: string;
+  }): Promise<void> {
+    await this.sendSafe(
+      params.to,
+      recurringBookingConfirmationEmail({
+        recipientName: params.recipientName,
+        businessName: params.businessName,
+        courtName: params.courtName,
+        dayOfWeek: params.dayOfWeek,
+        startTime: params.startTime,
+        endTime: params.endTime,
+        price: params.price,
+        dates: params.dates,
+        manageUrl: params.manageToken
+          ? this.url(
+              `/businesses/${params.businessId}/turnos-fijos/${params.seriesId}?token=${encodeURIComponent(params.manageToken)}`,
+            )
+          : undefined,
+        logoUrl: this.logoUrl,
+      }),
+    );
+  }
+
+  async sendRecurringBookingEnded(params: {
+    to: string;
+    recipientName: string;
+    businessName: string;
+    courtName: string;
+    dayOfWeek: number;
+    startTime: string;
+    cancelledCount: number;
+    from: string;
+    businessId: string;
+  }): Promise<void> {
+    await this.sendSafe(
+      params.to,
+      recurringBookingEndedEmail({
+        recipientName: params.recipientName,
+        businessName: params.businessName,
+        courtName: params.courtName,
+        dayOfWeek: params.dayOfWeek,
+        startTime: params.startTime,
+        cancelledCount: params.cancelledCount,
+        from: params.from,
+        rebookUrl: this.url(`/businesses/${params.businessId}/book`),
+        logoUrl: this.logoUrl,
+      }),
+    );
+  }
+
+  async sendBookingSuspended(params: {
+    to: string;
+    recipientName: string;
+    businessName: string;
+    courtName: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    reason?: string;
+    isRecurring: boolean;
+    businessId: string;
+  }): Promise<void> {
+    await this.sendSafe(
+      params.to,
+      bookingSuspendedEmail({
+        recipientName: params.recipientName,
+        businessName: params.businessName,
+        courtName: params.courtName,
+        date: params.date,
+        startTime: params.startTime,
+        endTime: params.endTime,
+        reason: params.reason,
+        isRecurring: params.isRecurring,
         rebookUrl: this.url(`/businesses/${params.businessId}/book`),
         logoUrl: this.logoUrl,
       }),

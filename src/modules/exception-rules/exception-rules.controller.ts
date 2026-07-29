@@ -53,6 +53,26 @@ export class ExceptionRulesController {
     };
   }
 
+  // Se consulta antes de confirmar el bloqueo: crear la excepción cancela las
+  // reservas de esa franja, y eso no puede ser una sorpresa.
+  @Post('preview-impact')
+  @HttpCode(HttpStatus.OK)
+  @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN)
+  @ApiOperation({
+    summary: 'Reservas que se cancelarían al aplicar esta excepción',
+  })
+  @ApiResponse({ status: 200, description: 'Reservas afectadas' })
+  async previewImpact(
+    @Param('businessId') businessId: string,
+    @Body() dto: CreateExceptionRuleDto,
+  ) {
+    const affected = await this.exceptionRulesService.previewImpact(
+      businessId,
+      dto,
+    );
+    return { total: affected.length, bookings: affected };
+  }
+
   @Get()
   @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
   @ApiOperation({ summary: 'List all exception rules for a business' })

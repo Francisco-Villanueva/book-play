@@ -11,6 +11,7 @@ import { BookingPaymentStatus, BookingStatus } from '../../../common/enums';
 import { Court } from '../../courts/entities/court.model';
 import { Business } from '../../businesses/entities/business.model';
 import { User } from '../../users/entities/user.model';
+import { RecurringBooking } from '../../recurring-bookings/entities/recurring-booking.model';
 
 @Table({
   tableName: 'bookings',
@@ -103,6 +104,12 @@ export class Booking extends Model {
   @Column({ type: DataType.DATE, field: 'payment_recorded_at' })
   declare paymentRecordedAt: Date | null;
 
+  // Instancia de un turno fijo (BR-028). Null = reserva suelta. La instancia es
+  // una Booking normal en todo lo demás: ocupa el slot, se cobra y se cancela igual.
+  @ForeignKey(() => RecurringBooking)
+  @Column({ type: DataType.UUID, field: 'recurring_booking_id' })
+  declare recurringBookingId: string | null;
+
   @Column(DataType.TEXT)
   declare notes: string;
 
@@ -118,4 +125,5 @@ export class Booking extends Model {
   declare court: Court;
   declare business: Business;
   declare user: User;
+  declare recurringBooking: RecurringBooking;
 }

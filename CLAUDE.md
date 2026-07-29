@@ -44,6 +44,7 @@ Six core entities with strict multi-tenant isolation:
 - **Business** — the tenant (sports complex), completely isolated from others
 - **Court** — a rentable space belonging to one Business (sport-agnostic; sport type is metadata only)
 - **Booking** — reserves a time slot on a Court; states: ACTIVE | CANCELLED; guest bookings allowed (no account required)
+- **RecurringBooking** — "turno fijo": same court + weekday + time every week; generates Bookings over a rolling 12-week window (BR-028)
 - **AvailabilityRule** — recurring weekly schedule patterns; can apply to multiple courts
 - **ExceptionRule** — date-specific overrides (holidays, events); always takes priority over AvailabilityRule
 

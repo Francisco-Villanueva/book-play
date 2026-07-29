@@ -1,6 +1,7 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { Transform, Type } from 'class-transformer';
 import {
+  IsBoolean,
   IsEnum,
   IsIn,
   IsInt,
@@ -62,6 +63,15 @@ export class ListBookingsQueryDto {
   )
   @IsEnum(BookingPaymentStatus, { each: true })
   paymentStatus?: BookingPaymentStatus[];
+
+  @ApiPropertyOptional({
+    example: true,
+    description: 'true = sólo instancias de turnos fijos; false = sólo sueltas',
+  })
+  @IsOptional()
+  @Transform(({ value }: { value: unknown }) => value === true || value === 'true')
+  @IsBoolean()
+  recurring?: boolean;
 
   @ApiPropertyOptional({
     example: 'Fernández',

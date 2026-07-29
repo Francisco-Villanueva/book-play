@@ -32,6 +32,11 @@ export function formatDateAr(isoDate: string): string {
   return `${DAYS[date.getDay()]} ${d} de ${MONTHS[m - 1]} de ${y}`;
 }
 
+// 2 -> "martes" (0 = domingo, igual que Date.getDay())
+export function formatDayOfWeekAr(dayOfWeek: number): string {
+  return DAYS[dayOfWeek] ?? '';
+}
+
 // "09:00:00" | "09:00" -> "09:00"
 export function formatTime(time: string): string {
   return time.substring(0, 5);

@@ -10,6 +10,10 @@ import { CourtException } from './entities/court-exception.model';
 import { Court } from '../courts/entities/court.model';
 import { CreateExceptionRuleDto } from './dto/create-exception-rule.dto';
 import { UpdateExceptionRuleDto } from './dto/update-exception-rule.dto';
+import {
+  ExceptionImpactService,
+  type AffectedBooking,
+} from './exception-impact.service';
 
 @Injectable()
 export class ExceptionRulesService {
@@ -22,6 +26,7 @@ export class ExceptionRulesService {
     private readonly courtModel: typeof Court,
     @Inject('SEQUELIZE')
     private readonly sequelize: Sequelize,
+    private readonly impactService: ExceptionImpactService,
   ) {}
 
   async create(
@@ -50,11 +55,39 @@ export class ExceptionRulesService {
 
       await transaction.commit();
 
+      // Después del commit, nunca dentro: un rollback no puede dejar reservas
+      // canceladas ni correos ya enviados.
+      await this.impactService.cancelAffected(
+        businessId,
+        {
+          date: rule.date,
+          startTime: rule.startTime,
+          endTime: rule.endTime,
+          isAvailable: rule.isAvailable,
+          courtIds,
+        },
+        rule.reason,
+      );
+
       return this.findOne(rule.id, businessId);
     } catch (error) {
       await transaction.rollback();
       throw error;
     }
+  }
+
+  // Cuántas reservas se caen si se aplica esta excepción, sin escribir nada.
+  async previewImpact(
+    businessId: string,
+    dto: CreateExceptionRuleDto,
+  ): Promise<AffectedBooking[]> {
+    return this.impactService.findAffected(businessId, {
+      date: dto.date,
+      startTime: dto.startTime,
+      endTime: dto.endTime,
+      isAvailable: dto.isAvailable,
+      courtIds: dto.courtIds,
+    });
   }
 
   async findAllByBusiness(businessId: string): Promise<ExceptionRule[]> {
@@ -119,7 +152,22 @@ export class ExceptionRulesService {
 
       await transaction.commit();
 
-      return this.findOne(id, businessId);
+      const updated = await this.findOne(id, businessId);
+      // Editar la excepción puede ampliar la franja o sumar canchas, así que se
+      // recalcula el impacto sobre el estado final, no sobre el diff.
+      await this.impactService.cancelAffected(
+        businessId,
+        {
+          date: updated.date,
+          startTime: updated.startTime,
+          endTime: updated.endTime,
+          isAvailable: updated.isAvailable,
+          courtIds: updated.courts?.map((c) => c.id),
+        },
+        updated.reason,
+      );
+
+      return updated;
     } catch (error) {
       await transaction.rollback();
       throw error;

@@ -4,6 +4,7 @@ import { Business } from '../businesses/entities/business.model';
 import { BusinessUser } from '../business-users/entities/business-user.model';
 import { Court } from '../courts/entities/court.model';
 import { Booking } from '../bookings/entities/booking.model';
+import { RecurringBooking } from '../recurring-bookings/entities/recurring-booking.model';
 import { AvailabilityRule } from '../availability-rules/entities/availability-rule.model';
 import { CourtAvailability } from '../availability-rules/entities/court-availability.model';
 import { ExceptionRule } from '../exception-rules/entities/exception-rule.model';
@@ -63,6 +64,30 @@ function defineAssociations() {
   Booking.belongsTo(Court, { foreignKey: 'courtId', as: 'court' });
   Booking.belongsTo(Business, { foreignKey: 'businessId', as: 'business' });
   Booking.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+  Booking.belongsTo(RecurringBooking, {
+    foreignKey: 'recurringBookingId',
+    as: 'recurringBooking',
+  });
+
+  // RecurringBooking (turno fijo)
+  RecurringBooking.belongsTo(Business, {
+    foreignKey: 'businessId',
+    as: 'business',
+  });
+  RecurringBooking.belongsTo(Court, { foreignKey: 'courtId', as: 'court' });
+  RecurringBooking.belongsTo(User, { foreignKey: 'userId', as: 'user' });
+  RecurringBooking.hasMany(Booking, {
+    foreignKey: 'recurringBookingId',
+    as: 'bookings',
+  });
+  Business.hasMany(RecurringBooking, {
+    foreignKey: 'businessId',
+    as: 'recurringBookings',
+  });
+  Court.hasMany(RecurringBooking, {
+    foreignKey: 'courtId',
+    as: 'recurringBookings',
+  });
 
   // AvailabilityRule
   AvailabilityRule.belongsTo(Business, {
@@ -158,6 +183,7 @@ export const databaseProviders = [
         BusinessUser,
         Court,
         Booking,
+        RecurringBooking,
         AvailabilityRule,
         CourtAvailability,
         ExceptionRule,

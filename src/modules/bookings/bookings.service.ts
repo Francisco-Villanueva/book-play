@@ -33,6 +33,16 @@ import {
 import { User } from '../users/entities/user.model';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
+import {
+  addMinutesToTime,
+  normalizeTime,
+  todayLocalISO,
+} from '../../common/utils/time.util';
+
+// Por qué un slot no se puede reservar. `CLOSED` cubre tanto el cierre por
+// ExceptionRule como el estar fuera de las AvailabilityRule del día: para quien
+// mira la previsualización de un turno fijo son el mismo problema.
+export type SlotConflictReason = 'CLOSED' | 'BOOKED';
 
 export interface PaginatedBookings {
   data: Booking[];
@@ -84,7 +94,7 @@ export class BookingsService {
       throw new NotFoundException('Business not found');
     }
 
-    const endTime = this.addMinutesToTime(dto.startTime, court.slotDuration);
+    const endTime = addMinutesToTime(dto.startTime, court.slotDuration);
 
     this.validateNoMidnightCrossing(dto.startTime, endTime);
     this.validateNotInPast(dto.date);
@@ -228,6 +238,11 @@ export class BookingsService {
 
     if (query.courtId) where.courtId = query.courtId;
     if (query.status) where.status = query.status;
+    if (query.recurring !== undefined) {
+      where.recurringBookingId = query.recurring
+        ? { [Op.ne]: null }
+        : { [Op.is]: null };
+    }
     if (query.paymentStatus?.length) {
       where.paymentStatus = { [Op.in]: query.paymentStatus };
     }
@@ -428,7 +443,7 @@ export class BookingsService {
     acceptsBookings: boolean;
     availableSlots: { startTime: string; endTime: string }[];
   }> {
-    const today = this.todayLocalISO();
+    const today = todayLocalISO();
     if (date < today) {
       throw new BadRequestException(
         'Cannot check availability for a past date',
@@ -461,8 +476,8 @@ export class BookingsService {
     let hasEnablingException = false;
 
     for (const exc of exceptions) {
-      const exStart = exc.startTime ? this.normalizeTime(exc.startTime) : null;
-      const exEnd = exc.endTime ? this.normalizeTime(exc.endTime) : null;
+      const exStart = exc.startTime ? normalizeTime(exc.startTime) : null;
+      const exEnd = exc.endTime ? normalizeTime(exc.endTime) : null;
 
       if (!exc.isAvailable) {
         if (!exStart || !exEnd) {
@@ -505,8 +520,8 @@ export class BookingsService {
         };
       }
       openWindows = rules.map((r) => ({
-        start: this.normalizeTime(r.startTime),
-        end: this.normalizeTime(r.endTime),
+        start: normalizeTime(r.startTime),
+        end: normalizeTime(r.endTime),
       }));
     }
 
@@ -519,7 +534,7 @@ export class BookingsService {
     for (const window of openWindows) {
       let slotStart = window.start;
       while (true) {
-        const slotEnd = this.addMinutesToTime(slotStart, slotDuration);
+        const slotEnd = addMinutesToTime(slotStart, slotDuration);
         if (slotEnd > window.end) break;
 
         const isBlocked = blockedRanges.some(
@@ -527,8 +542,8 @@ export class BookingsService {
         );
         const isBooked = existingBookings.some(
           (bk) =>
-            slotStart < this.normalizeTime(bk.endTime) &&
-            slotEnd > this.normalizeTime(bk.startTime),
+            slotStart < normalizeTime(bk.endTime) &&
+            slotEnd > normalizeTime(bk.startTime),
         );
 
         if (!isBlocked && !isBooked) {
@@ -570,7 +585,7 @@ export class BookingsService {
       isFull: boolean;
     }[];
   }> {
-    const today = this.todayLocalISO();
+    const today = todayLocalISO();
     if (date < today) {
       throw new BadRequestException(
         'Cannot check availability for a past date',
@@ -643,6 +658,40 @@ export class BookingsService {
     );
   }
 
+  // Versión no-lanzadora de los mismos chequeos que hace `create()`, para quien
+  // necesita evaluar muchas fechas de una (turnos fijos) sin armar y descartar
+  // una excepción por fecha. Devuelve null si el slot se puede reservar.
+  async findSlotConflict(
+    businessId: string,
+    courtId: string,
+    date: string,
+    startTime: string,
+    endTime: string,
+    transaction?: Transaction,
+  ): Promise<SlotConflictReason | null> {
+    try {
+      await this.checkAvailability(
+        businessId,
+        courtId,
+        date,
+        startTime,
+        endTime,
+      );
+    } catch (err) {
+      if (err instanceof BadRequestException) return 'CLOSED';
+      throw err;
+    }
+
+    try {
+      await this.checkNoOverlap(courtId, date, startTime, endTime, transaction);
+    } catch (err) {
+      if (err instanceof ConflictException) return 'BOOKED';
+      throw err;
+    }
+
+    return null;
+  }
+
   private async checkAvailability(
     businessId: string,
     courtId: string,
@@ -688,10 +737,10 @@ export class BookingsService {
   ): Promise<void> {
     for (const exception of exceptions) {
       const exStart = exception.startTime
-        ? this.normalizeTime(exception.startTime)
+        ? normalizeTime(exception.startTime)
         : null;
       const exEnd = exception.endTime
-        ? this.normalizeTime(exception.endTime)
+        ? normalizeTime(exception.endTime)
         : null;
 
       if (!exception.isAvailable) {
@@ -756,8 +805,8 @@ export class BookingsService {
     }
 
     const slotFits = rules.some((rule) => {
-      const ruleStart = this.normalizeTime(rule.startTime);
-      const ruleEnd = this.normalizeTime(rule.endTime);
+      const ruleStart = normalizeTime(rule.startTime);
+      const ruleEnd = normalizeTime(rule.endTime);
       return startTime >= ruleStart && endTime <= ruleEnd;
     });
 
@@ -816,22 +865,10 @@ export class BookingsService {
   }
 
   private validateNotInPast(date: string): void {
-    const today = this.todayLocalISO();
+    const today = todayLocalISO();
     if (date < today) {
       throw new BadRequestException('Cannot book a date in the past');
     }
-  }
-
-  // Uses the server's local calendar date rather than UTC — date + 'T12:00:00'
-  // elsewhere in this service is parsed as local time too, and comparing a
-  // UTC "today" against that (BR-023/EC date checks) rejects the current day
-  // as "past" for part of the evening in UTC-negative timezones (e.g. ART).
-  private todayLocalISO(): string {
-    const d = new Date();
-    const y = d.getFullYear();
-    const m = String(d.getMonth() + 1).padStart(2, '0');
-    const day = String(d.getDate()).padStart(2, '0');
-    return `${y}-${m}-${day}`;
   }
 
   private validateNoMidnightCrossing(startTime: string, endTime: string): void {
@@ -840,19 +877,6 @@ export class BookingsService {
         'Booking slot cannot cross midnight (BR-023)',
       );
     }
-  }
-
-  private addMinutesToTime(time: string, minutes: number): string {
-    const [h, m] = time.split(':').map(Number);
-    const totalMinutes = h * 60 + m + minutes;
-    const newH = Math.floor(totalMinutes / 60);
-    const newM = totalMinutes % 60;
-    return `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
-  }
-
-  private normalizeTime(time: string): string {
-    // Strip seconds from DB TIME values (e.g., "09:00:00" → "09:00")
-    return time.substring(0, 5);
   }
 
   private async resolveBookingRecipient(

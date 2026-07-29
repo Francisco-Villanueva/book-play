@@ -243,10 +243,10 @@ These rules are simplified for the MVP and will be enhanced in future versions:
 
 **Future**: Integrate online payments, deposits, or "pay at venue" tracking.
 
-### BR-021: No Recurring Bookings
-**Rule**: Each booking is a single, independent reservation.
-
-**Future**: Allow users to book the same slot weekly/monthly.
+### BR-021: ~~No Recurring Bookings~~ (superseded by BR-028)
+**Superseded**: recurring bookings ("turnos fijos") are implemented — see **BR-028**.
+A booking is still a single, independent reservation; a `RecurringBooking` merely
+generates them.
 
 ### BR-022: No Advanced User Rules
 **Rule**: All users are treated equally (no VIP, no blacklist).
@@ -405,6 +405,51 @@ Checks:
 Result: Action rejected
 ```
 
+### BR-028: Recurring Bookings ("turno fijo")
+**Rule**: A `RecurringBooking` reserves the same court, the same weekday and the same
+start time, week after week. It is created **only by the venue's staff**
+(`OWNER | ADMIN | STAFF`) — there is no public/player-facing flow.
+
+**A series does not block availability by itself.** What blocks a slot are the
+`Booking` rows it generates, which are ordinary bookings in every other respect: they
+occupy the slot (BR-001), are charged and collected at the counter (BR-025), and are
+cancelled one by one. `Booking.recurringBookingId` is the only thing that marks them.
+
+**Generation**: instances are materialised over a **rolling 12-week window**
+(`GENERATION_HORIZON_DAYS = 84`), extended daily by a cron. A series has no end date
+unless one is given.
+- Generation is **never all-or-nothing**: a date whose slot is closed or already booked
+  is skipped and reported, and the rest of the series is still created. A conflict on
+  week 7 must not block the whole thing.
+- Instances are **never created in the past**, and never for a venue whose subscription
+  is read-only (BR-026).
+- **Price is the one in force when the instance is generated** (`court.pricePerSlot`),
+  not the one at series creation — a price rise reaches the series' future turns.
+
+**Cancellation**:
+- Cancelling one instance frees **that date only**; the series stays alive.
+- Ending the series cancels every **future** instance. Turns already played are never
+  touched — they stay in history and keep counting for collection and metrics.
+- The link in the client's email can only drop **one date**, never the series.
+
+**Email**: exactly **one** email per series on creation, listing the upcoming dates.
+Generating the instances (initial or by cron) never emails per instance.
+
+### BR-029: A Block Cancels the Bookings Underneath It
+**Rule**: Creating or editing an `ExceptionRule` **cancels the active bookings it
+covers**, and emails each affected client with the reason.
+
+- `isAvailable: false` (closure): every overlapping booking on that date and those
+  courts is cancelled; with no time window, the whole day is.
+- `isAvailable: true` (special opening): that date is only bookable inside the window
+  (BR-007), so bookings **outside** it are cancelled too.
+- The venue **must be shown who is affected before confirming** — the API exposes a
+  dry-run for it (`POST .../exception-rules/preview-impact`).
+- This email ignores `users.notify_bookings`: the client did not ask for this
+  cancellation, and it is the only way they learn the venue closed.
+- Cancellation happens **after the exception is committed**, never inside the
+  transaction: a rollback must not leave bookings cancelled or emails sent.
+
 ---
 
 ## 🔄 Rule Change Impact
@@ -415,7 +460,9 @@ Result: Action rejected
 
 ### Adding ExceptionRule
 **Impact**: Blocks or enables specific dates
-**Existing bookings**: Unchanged (bookings remain valid even if exception would prevent them)
+**Existing bookings**: **Cancelled automatically** — see BR-029. (This reverses the
+pre-BR-029 behaviour, which left them alive and produced phantom bookings on a
+day the venue had already closed.)
 
 ### Cancelling Booking
 **Impact**: Immediate

@@ -447,14 +447,33 @@ const bookingTime = DateTime.fromISO(inputTime, { zone: businessTimezone });
 
 ---
 
+### EC-024: Recurring Booking vs. Block (handled — BR-028 / BR-029)
+
+**Scenario**:
+- A client has a turno fijo every Tuesday at 20:00
+- The venue blocks that Tuesday (`ExceptionRule`, e.g. an internal tournament)
+
+**Expected Behavior**:
+- Before confirming the block, the venue is shown every booking it will cancel,
+  the turno fijo instances flagged as such
+- On confirming, those instances are cancelled — that date only
+- Each affected client gets an email stating the venue's reason, and turno fijo
+  clients are told their series stays alive for the other weeks
+- The series keeps generating normally: the blocked date is simply a gap
+
+**Implementation**:
+- `ExceptionImpactService.findAffected()` (dry-run, exposed at
+  `POST /businesses/:businessId/exception-rules/preview-impact`)
+- `ExceptionImpactService.cancelAffected()` runs after the exception commits
+- `booking-suspended` email template
+- The generator skips dates that fail the availability check and reports them,
+  so a block set up *before* generation simply never produces that instance
+
+---
+
 ## 🔮 Out of Scope (Post-MVP)
 
 These edge cases are documented but NOT handled in MVP:
-
-### EC-024: Recurring Bookings Conflict
-- User has weekly recurring booking
-- Admin creates exception blocking that day
-- **Future**: System should notify user and offer rescheduling
 
 ### EC-025: Payment Failure After Booking
 - Booking created, payment fails
