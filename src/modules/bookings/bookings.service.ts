@@ -861,7 +861,11 @@ export class BookingsService {
   ): Promise<{ email: string; name: string } | null> {
     if (userId) {
       const user = await this.usersService.findById(userId);
-      return user ? { email: user.email, name: user.name } : null;
+      // Un usuario con los avisos apagados no recibe nada. Los invitados no tienen
+      // cuenta donde configurarlo, así que siguen recibiendo el correo — es su único
+      // comprobante y el único lugar donde les llega el link para cancelar.
+      if (!user || !user.notifyBookings) return null;
+      return { email: user.email, name: user.name };
     }
     return booking.guestEmail
       ? { email: booking.guestEmail, name: booking.guestName || 'jugador' }

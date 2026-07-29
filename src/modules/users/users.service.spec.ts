@@ -1,5 +1,9 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { ConflictException } from '@nestjs/common';
+import {
+  BadRequestException,
+  ConflictException,
+  NotFoundException,
+} from '@nestjs/common';
 import * as bcrypt from 'bcrypt';
 import { UsersService } from './users.service';
 import { USER_REPOSITORY } from '../database/constants/repositories.constants';
@@ -84,6 +88,57 @@ describe('UsersService', () => {
       mockUserModel.findByPk.mockResolvedValue(user);
 
       expect(await service.findById('uuid-1')).toEqual(user);
+    });
+  });
+
+  describe('preferences', () => {
+    it('should return the stored notifyBookings flag', async () => {
+      mockUserModel.findByPk.mockResolvedValue({ notifyBookings: false });
+
+      expect(await service.getPreferences('uuid-1')).toEqual({
+        notifyBookings: false,
+      });
+    });
+
+    it('should throw NotFoundException when the user does not exist', async () => {
+      mockUserModel.findByPk.mockResolvedValue(null);
+
+      await expect(service.getPreferences('missing')).rejects.toThrow(
+        NotFoundException,
+      );
+    });
+
+    it('should persist notifyBookings and return the new value', async () => {
+      const user = {
+        notifyBookings: true,
+        update: jest.fn().mockImplementation(function (this: void, values: any) {
+          user.notifyBookings = values.notifyBookings;
+        }),
+      };
+      mockUserModel.findByPk.mockResolvedValue(user);
+
+      const result = await service.updatePreferences('uuid-1', {
+        notifyBookings: false,
+      });
+
+      expect(user.update).toHaveBeenCalledWith({ notifyBookings: false });
+      expect(result).toEqual({ notifyBookings: false });
+    });
+
+    // `false` es un valor válido: la guarda mira `undefined`, no falsy.
+    it('should accept turning notifications off', async () => {
+      const user = { notifyBookings: true, update: jest.fn() };
+      mockUserModel.findByPk.mockResolvedValue(user);
+
+      await service.updatePreferences('uuid-1', { notifyBookings: false });
+
+      expect(user.update).toHaveBeenCalledWith({ notifyBookings: false });
+    });
+
+    it('should throw BadRequestException when no preference is sent', async () => {
+      await expect(service.updatePreferences('uuid-1', {})).rejects.toThrow(
+        BadRequestException,
+      );
     });
   });
 

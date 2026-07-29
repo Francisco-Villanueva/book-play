@@ -15,6 +15,7 @@ import {
 } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { BusinessUser } from '../business-users/entities/business-user.model';
 import { Business } from '../businesses/entities/business.model';
@@ -79,6 +80,28 @@ export class UsersController {
         globalRole: raw.globalRole,
         updatedAt: user.updatedAt,
       },
+    };
+  }
+
+  @Get('me/preferences')
+  @ApiOperation({ summary: 'Get the authenticated user notification preferences' })
+  @ApiResponse({ status: 200, description: 'Preferences' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async getMyPreferences(@Request() req: any) {
+    return { preferences: await this.usersService.getPreferences(req.user.id) };
+  }
+
+  @Patch('me/preferences')
+  @ApiOperation({ summary: 'Update the authenticated user notification preferences' })
+  @ApiResponse({ status: 200, description: 'Preferences updated' })
+  @ApiResponse({ status: 400, description: 'No fields provided' })
+  @ApiResponse({ status: 401, description: 'Unauthorized' })
+  async updateMyPreferences(
+    @Request() req: any,
+    @Body() dto: UpdatePreferencesDto,
+  ) {
+    return {
+      preferences: await this.usersService.updatePreferences(req.user.id, dto),
     };
   }
 }

@@ -42,6 +42,16 @@ export class User extends Model {
   })
   declare globalRole: GlobalRole;
 
+  /** Correos de confirmación y cancelación de reserva. Los invitados no tienen cuenta
+   *  y por lo tanto quedan siempre fuera de esta preferencia. */
+  @Default(true)
+  @Column({
+    type: DataType.BOOLEAN,
+    allowNull: false,
+    field: 'notify_bookings',
+  })
+  declare notifyBookings: boolean;
+
   declare bookings: Booking[];
 
   toJSON({ includePassword = false }: { includePassword?: boolean } = {}) {

@@ -14,6 +14,7 @@ import { USER_REPOSITORY } from '../database/constants/repositories.constants';
 import { GlobalRole } from '../../common/enums';
 import { RegisterDto } from '../auth/dto/register.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdatePreferencesDto } from './dto/update-preferences.dto';
 
 @Injectable()
 export class UsersService {
@@ -92,6 +93,31 @@ export class UsersService {
 
     await user.update(dto);
     return user;
+  }
+
+  async getPreferences(id: string): Promise<{ notifyBookings: boolean }> {
+    const user = await this.findById(id);
+    if (!user) {
+      throw new NotFoundException('No encontramos el usuario');
+    }
+    return { notifyBookings: user.notifyBookings };
+  }
+
+  async updatePreferences(
+    id: string,
+    dto: UpdatePreferencesDto,
+  ): Promise<{ notifyBookings: boolean }> {
+    if (dto.notifyBookings === undefined) {
+      throw new BadRequestException('No enviaste ninguna preferencia para actualizar');
+    }
+
+    const user = await this.findById(id);
+    if (!user) {
+      throw new NotFoundException('No encontramos el usuario');
+    }
+
+    await user.update({ notifyBookings: dto.notifyBookings });
+    return { notifyBookings: user.notifyBookings };
   }
 
   async validatePassword(
