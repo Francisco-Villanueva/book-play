@@ -19,6 +19,7 @@ import { RecurringBookingsService } from './recurring-bookings.service';
 import { CreateRecurringBookingDto } from './dto/create-recurring-booking.dto';
 import { PreviewRecurringBookingDto } from './dto/preview-recurring-booking.dto';
 import { EndRecurringBookingDto } from './dto/end-recurring-booking.dto';
+import { ResendGuestLinkDto } from './dto/resend-guest-link.dto';
 import {
   CancelSeriesInstanceDto,
   GuestSeriesQueryDto,
@@ -103,6 +104,23 @@ export class RecurringBookingsController {
     @Param('seriesId') seriesId: string,
   ) {
     return this.service.findInstances(seriesId, businessId);
+  }
+
+  @Patch(':seriesId/resend-link')
+  @UseGuards(JwtAuthGuard, BusinessRolesGuard)
+  @BusinessRoles(BusinessRole.OWNER, BusinessRole.ADMIN, BusinessRole.STAFF)
+  @ApiBearerAuth()
+  @ApiOperation({
+    summary: 'Reenviar al cliente el link para ver y gestionar sus fechas',
+  })
+  @ApiResponse({ status: 200, description: 'Link reenviado' })
+  @ApiResponse({ status: 400, description: 'El turno fijo no tiene correo' })
+  async resendLink(
+    @Param('businessId') businessId: string,
+    @Param('seriesId') seriesId: string,
+    @Body() dto: ResendGuestLinkDto,
+  ) {
+    return this.service.resendGuestLink(seriesId, businessId, dto.email);
   }
 
   // Igual que cancelar una reserva: sigue disponible en solo lectura para que un

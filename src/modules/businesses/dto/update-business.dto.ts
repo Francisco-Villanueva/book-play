@@ -2,9 +2,11 @@ import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
   IsEmail,
   IsIn,
+  IsInt,
   IsNumber,
   IsOptional,
   IsString,
+  Max,
   Min,
   MinLength,
 } from 'class-validator';
@@ -59,4 +61,17 @@ export class UpdateBusinessDto {
   @IsNumber({ maxDecimalPlaces: 2 })
   @Min(0)
   defaultPricePerSlot?: number;
+
+  @ApiPropertyOptional({
+    example: 24,
+    minimum: 0,
+    maximum: 168,
+    description:
+      'Antelación mínima en horas con la que el cliente puede cancelar. 0 = sin restricción',
+  })
+  @IsOptional()
+  @IsInt()
+  @Min(0)
+  @Max(168)
+  cancellationDeadlineHours?: number;
 }

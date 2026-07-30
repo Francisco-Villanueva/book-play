@@ -217,6 +217,8 @@ Represents a reservation of a court for a specific time slot.
 
   // Instancia de un turno fijo (BR-028). Null = reserva suelta.
   recurringBookingId?: UUID (FK -> RecurringBooking, ON DELETE SET NULL)
+  // El plazo mínimo para que el CLIENTE cancele vive en
+  // Business.cancellationDeadlineHours (BR-019), no acá.
 
   // Cobro presencial del turno (BR-025). Independiente de `status`.
   paymentStatus: 'UNPAID' | 'PARTIAL' | 'PAID'   // default UNPAID

@@ -14,6 +14,7 @@ import { BookingPaymentStatus, BookingStatus } from '../../common/enums';
 import { ListBookingsQueryDto } from './dto/list-bookings-query.dto';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
+import { NotificationsService } from '../notifications/notifications.service';
 
 const BUSINESS_ID = 'b1';
 
@@ -43,6 +44,7 @@ describe('BookingsService.findAllByBusiness', () => {
         { provide: 'SEQUELIZE', useValue: {} },
         { provide: UsersService, useValue: {} },
         { provide: MailService, useValue: {} },
+        { provide: NotificationsService, useValue: {} },
       ],
     }).compile();
 

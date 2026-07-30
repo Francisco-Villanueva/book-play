@@ -43,6 +43,17 @@ export function firstDateOnOrAfter(from: string, dayOfWeek: number): string {
   return addDaysToISODate(from, diff);
 }
 
+// Horas que faltan para el arranque de un turno. Se parsea en hora local del
+// servidor, igual que el resto del dominio ('YYYY-MM-DD' + 'T…'). Negativo si ya pasó.
+export function hoursUntil(
+  date: string,
+  startTime: string,
+  now: Date = new Date(),
+): number {
+  const start = new Date(`${date}T${normalizeTime(startTime)}:00`);
+  return (start.getTime() - now.getTime()) / 3_600_000;
+}
+
 export function rangesOverlap(
   aStart: string,
   aEnd: string,

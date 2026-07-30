@@ -10,6 +10,7 @@ import { BusinessesModule } from '../businesses/businesses.module';
 import { CourtsModule } from '../courts/courts.module';
 import { DatabaseModule } from '../database/database.module';
 import { MailModule } from '../mail/mail.module';
+import { NotificationsModule } from '../notifications/notifications.module';
 import { subscriptionProvider } from '../subscriptions/subscription.provider';
 
 @Module({
@@ -20,6 +21,7 @@ import { subscriptionProvider } from '../subscriptions/subscription.provider';
     CourtsModule,
     DatabaseModule,
     MailModule,
+    NotificationsModule,
   ],
   controllers: [RecurringBookingsController],
   providers: [

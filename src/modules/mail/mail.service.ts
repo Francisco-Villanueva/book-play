@@ -5,6 +5,7 @@ import type { Transporter } from 'nodemailer';
 import {
   RenderedEmail,
   bookingCancellationEmail,
+  bookingCancelledByClientEmail,
   bookingConfirmationEmail,
   bookingSuspendedEmail,
   businessInvitationEmail,
@@ -175,6 +176,35 @@ export class MailService {
         startTime: params.startTime,
         endTime: params.endTime,
         rebookUrl: this.url(`/businesses/${params.businessId}/book`),
+        logoUrl: this.logoUrl,
+      }),
+    );
+  }
+
+  async sendBookingCancelledByClient(params: {
+    to: string;
+    recipientName: string;
+    businessName: string;
+    clientName: string;
+    courtName: string;
+    date: string;
+    startTime: string;
+    endTime: string;
+    isRecurringInstance: boolean;
+    businessId: string;
+  }): Promise<void> {
+    await this.sendSafe(
+      params.to,
+      bookingCancelledByClientEmail({
+        recipientName: params.recipientName,
+        businessName: params.businessName,
+        clientName: params.clientName,
+        courtName: params.courtName,
+        date: params.date,
+        startTime: params.startTime,
+        endTime: params.endTime,
+        isRecurringInstance: params.isRecurringInstance,
+        agendaUrl: this.url(`/admin/${params.businessId}/agenda`),
         logoUrl: this.logoUrl,
       }),
     );

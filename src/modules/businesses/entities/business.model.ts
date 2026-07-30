@@ -51,6 +51,17 @@ export class Business extends Model {
   @Column({ type: DataType.DECIMAL(10, 2), field: 'default_price_per_slot' })
   declare defaultPricePerSlot: number;
 
+  // Antelación mínima con la que el CLIENTE puede cancelar (BR-019). 0 = sin
+  // restricción. El staff del complejo nunca queda limitado por esto: la cancha
+  // es suya y tiene que poder liberarla en cualquier momento.
+  @Default(24)
+  @Column({
+    type: DataType.INTEGER,
+    allowNull: false,
+    field: 'cancellation_deadline_hours',
+  })
+  declare cancellationDeadlineHours: number;
+
   declare businessUsers: BusinessUser[];
   declare courts: Court[];
   declare availabilityRules: AvailabilityRule[];

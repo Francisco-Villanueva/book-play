@@ -30,8 +30,10 @@ import {
   addDaysToISODate,
   addMinutesToTime,
   dayOfWeekOfISODate,
+  hoursUntil,
   todayLocalISO,
 } from '../../common/utils/time.util';
+import { NotificationsService } from '../notifications/notifications.service';
 
 // Cuántas fechas próximas se listan en el correo de alta. Más que esto convierte
 // el correo en una parrilla ilegible.
@@ -50,6 +52,7 @@ export class RecurringBookingsService {
     private readonly businessModel: typeof Business,
     private readonly generator: RecurringBookingsGenerator,
     private readonly mailService: MailService,
+    private readonly notificationsService: NotificationsService,
   ) {}
 
   async preview(
@@ -107,7 +110,11 @@ export class RecurringBookingsService {
       );
     }
 
-    const cancellationToken = crypto.randomBytes(32).toString('hex');
+    // El token sólo sirve si hay dónde mandarlo: sin email quedaría un hash en
+    // la base que nadie puede satisfacer nunca.
+    const cancellationToken = dto.guestEmail
+      ? crypto.randomBytes(32).toString('hex')
+      : null;
 
     const series = await this.recurringModel.create({
       businessId,
@@ -126,7 +133,9 @@ export class RecurringBookingsService {
       status: RecurringBookingStatus.ACTIVE,
       notes: dto.notes ?? null,
       createdBy,
-      cancellationTokenHash: this.hashToken(cancellationToken),
+      cancellationTokenHash: cancellationToken
+        ? this.hashToken(cancellationToken)
+        : null,
     });
 
     const report = await this.generator.generateUpTo(
@@ -214,6 +223,60 @@ export class RecurringBookingsService {
     return { series, cancelled };
   }
 
+  // El token plano existe sólo dentro del correo de alta: del hash no se puede
+  // recuperar. Si el cliente lo perdió (o dejó el email después), la única salida
+  // es emitir uno nuevo, que invalida el anterior.
+  async resendGuestLink(
+    id: string,
+    businessId: string,
+    email?: string,
+  ): Promise<{ sentTo: string }> {
+    const series = await this.findOne(id, businessId);
+    const target = email?.trim() || series.guestEmail;
+
+    if (!target) {
+      throw new BadRequestException(
+        'Este turno fijo no tiene un correo cargado. Agregá uno para poder enviarle el link.',
+      );
+    }
+
+    const business = await this.businessModel.findByPk(businessId);
+    const court = await this.requireCourt(businessId, series.courtId);
+    const token = crypto.randomBytes(32).toString('hex');
+
+    await series.update({
+      guestEmail: target,
+      cancellationTokenHash: this.hashToken(token),
+    });
+
+    const upcoming = await this.bookingModel.findAll({
+      where: {
+        recurringBookingId: id,
+        status: BookingStatus.ACTIVE,
+        date: { [Op.gte]: todayLocalISO() },
+      },
+      order: [['date', 'ASC']],
+      limit: EMAIL_PREVIEW_DATES,
+    });
+
+    await this.mailService.sendRecurringBookingConfirmation({
+      to: target,
+      recipientName: series.guestName ?? 'jugador',
+      businessName: business?.name ?? 'el complejo',
+      courtName: court.name,
+      dayOfWeek: series.dayOfWeek,
+      startTime: series.startTime,
+      endTime: addMinutesToTime(series.startTime, court.slotDuration),
+      price: Number(court.pricePerSlot),
+      dates: upcoming.map((b) => b.date),
+      businessId,
+      seriesId: series.id,
+      manageToken: token,
+    });
+
+    return { sentTo: target };
+  }
+
   // --- Acceso del cliente sin cuenta, validado por el token del correo ---
 
   async findForGuest(
@@ -227,7 +290,13 @@ export class RecurringBookingsService {
     courtName: string;
     dayOfWeek: number;
     startTime: string;
-    instances: { id: string; date: string; status: BookingStatus }[];
+    cancellationDeadlineHours: number;
+    instances: {
+      id: string;
+      date: string;
+      status: BookingStatus;
+      canCancel: boolean;
+    }[];
   }> {
     const series = await this.getSeriesByToken(id, businessId, token);
     const instances = await this.bookingModel.findAll({
@@ -235,6 +304,7 @@ export class RecurringBookingsService {
       order: [['date', 'ASC']],
     });
     const business = await this.businessModel.findByPk(businessId);
+    const deadline = business?.cancellationDeadlineHours ?? 0;
 
     return {
       id: series.id,
@@ -243,10 +313,16 @@ export class RecurringBookingsService {
       courtName: series.court?.name ?? '',
       dayOfWeek: series.dayOfWeek,
       startTime: series.startTime,
+      cancellationDeadlineHours: deadline,
       instances: instances.map((b) => ({
         id: b.id,
         date: b.date,
         status: b.status,
+        // Se resuelve acá y no en el front: la hora de corte la define el
+        // servidor, y el reloj del cliente no es confiable.
+        canCancel:
+          b.status === BookingStatus.ACTIVE &&
+          (deadline <= 0 || hoursUntil(b.date, b.startTime) >= deadline),
       })),
     };
   }
@@ -259,7 +335,7 @@ export class RecurringBookingsService {
     token: string,
     bookingId: string,
   ): Promise<Booking> {
-    await this.getSeriesByToken(id, businessId, token);
+    const series = await this.getSeriesByToken(id, businessId, token);
 
     const booking = await this.bookingModel.findOne({
       where: { id: bookingId, recurringBookingId: id, businessId },
@@ -272,10 +348,27 @@ export class RecurringBookingsService {
       throw new BadRequestException('No se puede cancelar un turno ya jugado');
     }
 
+    const business = await this.businessModel.findByPk(businessId);
+    const deadline = business?.cancellationDeadlineHours ?? 0;
+    if (deadline > 0 && hoursUntil(booking.date, booking.startTime) < deadline) {
+      throw new BadRequestException(
+        `Este complejo permite dar de baja una fecha hasta ${deadline} ${deadline === 1 ? 'hora' : 'horas'} antes. Comunicate con el complejo.`,
+      );
+    }
+
     await booking.update({
       status: BookingStatus.CANCELLED,
       cancelledAt: new Date(),
     });
+
+    if (business) {
+      void this.notificationsService.notifyClientCancellation({
+        booking,
+        business,
+        courtName: series.court?.name ?? 'la cancha',
+        isRecurringInstance: true,
+      });
+    }
 
     return booking;
   }
@@ -349,9 +442,9 @@ export class RecurringBookingsService {
     court: Court,
     business: Business,
     report: GenerationReport,
-    cancellationToken: string,
+    cancellationToken: string | null,
   ): Promise<void> {
-    if (!series.guestEmail) return;
+    if (!series.guestEmail || !cancellationToken) return;
     const dates = report.occurrences
       .filter((o) => o.status === 'CREATED')
       .slice(0, EMAIL_PREVIEW_DATES)

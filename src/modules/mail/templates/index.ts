@@ -5,6 +5,7 @@ export * from './welcome-owner';
 export * from './booking-confirmation';
 export * from './booking-cancellation';
 export * from './booking-suspended';
+export * from './booking-cancelled-by-client';
 export * from './recurring-booking-confirmation';
 export * from './recurring-booking-ended';
 export * from './payment-receipt';

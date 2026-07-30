@@ -233,10 +233,33 @@ OWNER > ADMIN > STAFF
 
 These rules are simplified for the MVP and will be enhanced in future versions:
 
-### BR-019: No Cancellation Penalties
-**Rule**: Cancelling a booking has no penalty or restrictions.
+### BR-019: Cancellation Deadline (per venue)
+**Rule**: Each venue sets the **minimum notice a client must give to cancel**, in
+`Business.cancellationDeadlineHours` (default **24**, `0` = no restriction, max 168).
 
-**Future**: Add cancellation policies, deadlines, or fees.
+- It restricts **the client only**: the account holder cancelling their own booking, the
+  guest cancelling from the email link, and the client dropping one date of a turno fijo.
+- **The venue's staff is never restricted.** The court is theirs and they must be able to
+  free it at any moment — including ten minutes before. A block (BR-029) is not restricted
+  either.
+- The server decides, not the client: the guest-facing endpoints return a `canCancel` flag
+  so the UI can explain the rule instead of offering a button the server will reject. The
+  client's clock is not trusted.
+- There are still **no fees or penalties** — the deadline just moves the cancellation to
+  the venue's phone.
+
+### BR-030: The Venue Is Told When a Client Cancels
+**Rule**: When **a client** cancels (not staff), the venue is notified through two channels:
+a `Notification` row visible to the whole team in the panel, and an email.
+
+- **Email goes to `OWNER` and `ADMIN` only.** `STAFF` sees the in-app notification but does
+  not get mail — they are usually the one at the counter.
+- **Staff-initiated cancellations produce nothing.** If the venue cancelled it, the venue
+  already knows; mailing them is noise. This is a product decision, not an oversight.
+- Notifications are **per business, not per user**: the whole team sees the same list and
+  marking one read marks it read for everyone. A per-person read state would multiply rows
+  per employee without helping the real case (whoever sees it first resolves it).
+- Sending is fire-and-forget, after the cancellation is committed.
 
 ### BR-020: No Payment Integration
 **Rule**: Booking confirmation does not require payment.

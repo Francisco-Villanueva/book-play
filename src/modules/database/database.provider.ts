@@ -5,6 +5,7 @@ import { BusinessUser } from '../business-users/entities/business-user.model';
 import { Court } from '../courts/entities/court.model';
 import { Booking } from '../bookings/entities/booking.model';
 import { RecurringBooking } from '../recurring-bookings/entities/recurring-booking.model';
+import { Notification } from '../notifications/entities/notification.model';
 import { AvailabilityRule } from '../availability-rules/entities/availability-rule.model';
 import { CourtAvailability } from '../availability-rules/entities/court-availability.model';
 import { ExceptionRule } from '../exception-rules/entities/exception-rule.model';
@@ -87,6 +88,16 @@ function defineAssociations() {
   Court.hasMany(RecurringBooking, {
     foreignKey: 'courtId',
     as: 'recurringBookings',
+  });
+
+  // Notifications
+  Business.hasMany(Notification, {
+    foreignKey: 'businessId',
+    as: 'notifications',
+  });
+  Notification.belongsTo(Business, {
+    foreignKey: 'businessId',
+    as: 'business',
   });
 
   // AvailabilityRule
@@ -184,6 +195,7 @@ export const databaseProviders = [
         Court,
         Booking,
         RecurringBooking,
+        Notification,
         AvailabilityRule,
         CourtAvailability,
         ExceptionRule,

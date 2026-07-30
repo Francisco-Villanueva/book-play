@@ -35,9 +35,11 @@ import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import {
   addMinutesToTime,
+  hoursUntil,
   normalizeTime,
   todayLocalISO,
 } from '../../common/utils/time.util';
+import { NotificationsService } from '../notifications/notifications.service';
 
 // Por qué un slot no se puede reservar. `CLOSED` cubre tanto el cierre por
 // ExceptionRule como el estar fuera de las AvailabilityRule del día: para quien
@@ -73,7 +75,43 @@ export class BookingsService {
     private readonly sequelize: Sequelize,
     private readonly usersService: UsersService,
     private readonly mailService: MailService,
+    private readonly notificationsService: NotificationsService,
   ) {}
+
+  // Antelación mínima que el complejo exige AL CLIENTE para cancelar (BR-019).
+  // No se aplica al staff: la cancha es del complejo y tiene que poder liberarla
+  // cuando quiera, incluso 10 minutos antes.
+  private async assertClientCanCancel(booking: Booking): Promise<void> {
+    const business = await this.businessModel.findByPk(booking.businessId, {
+      attributes: ['cancellationDeadlineHours'],
+    });
+    const deadline = business?.cancellationDeadlineHours ?? 0;
+    if (deadline <= 0) return;
+
+    if (hoursUntil(booking.date, booking.startTime) < deadline) {
+      throw new BadRequestException(
+        `Este complejo permite cancelar hasta ${deadline} ${deadline === 1 ? 'hora' : 'horas'} antes del turno. Comunicate con el complejo para cancelarlo.`,
+      );
+    }
+  }
+
+  // Aviso al complejo de que se liberó un turno. Sólo para cancelaciones del
+  // cliente: si canceló el staff, ya lo sabe.
+  private async notifyBusinessOfClientCancellation(
+    booking: Booking,
+  ): Promise<void> {
+    const business =
+      booking.business ??
+      (await this.businessModel.findByPk(booking.businessId));
+    if (!business) return;
+
+    await this.notificationsService.notifyClientCancellation({
+      booking,
+      business,
+      courtName: booking.court?.name ?? 'la cancha',
+      isRecurringInstance: booking.recurringBookingId !== null,
+    });
+  }
 
   async create(
     businessId: string,
@@ -326,12 +364,17 @@ export class BookingsService {
     date: string;
     startTime: string;
     endTime: string;
+    cancellationDeadlineHours: number;
+    canCancel: boolean;
   }> {
     const booking = await this.getGuestBookingByToken(
       bookingId,
       businessId,
       token,
     );
+    // La pantalla necesita saber si puede cancelar ANTES de ofrecer el botón:
+    // mostrarlo y que el servidor lo rechace es la peor versión de esta regla.
+    const deadline = booking.business?.cancellationDeadlineHours ?? 0;
     return {
       id: booking.id,
       status: booking.status,
@@ -340,6 +383,9 @@ export class BookingsService {
       date: booking.date,
       startTime: booking.startTime,
       endTime: booking.endTime,
+      cancellationDeadlineHours: deadline,
+      canCancel:
+        deadline <= 0 || hoursUntil(booking.date, booking.startTime) >= deadline,
     };
   }
 
@@ -359,12 +405,15 @@ export class BookingsService {
       throw new BadRequestException('Booking is already cancelled');
     }
 
+    await this.assertClientCanCancel(booking);
+
     await booking.update({
       status: BookingStatus.CANCELLED,
       cancelledAt: new Date(),
     });
 
     void this.notifyBookingCancelled(booking);
+    void this.notifyBusinessOfClientCancellation(booking);
 
     return booking;
   }
@@ -422,12 +471,15 @@ export class BookingsService {
       throw new BadRequestException('Booking is already cancelled');
     }
 
+    await this.assertClientCanCancel(booking);
+
     await booking.update({
       status: BookingStatus.CANCELLED,
       cancelledAt: new Date(),
     });
 
     void this.notifyBookingCancelled(booking);
+    void this.notifyBusinessOfClientCancellation(booking);
 
     return booking;
   }
