@@ -37,6 +37,7 @@ import {
   addMinutesToTime,
   hoursUntil,
   normalizeTime,
+  nowLocalTime,
   todayLocalISO,
 } from '../../common/utils/time.util';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -135,7 +136,7 @@ export class BookingsService {
     const endTime = addMinutesToTime(dto.startTime, court.slotDuration);
 
     this.validateNoMidnightCrossing(dto.startTime, endTime);
-    this.validateNotInPast(dto.date);
+    this.validateNotInPast(dto.date, endTime);
 
     await this.checkAvailability(
       businessId,
@@ -583,12 +584,19 @@ export class BookingsService {
 
     const availableSlots: { startTime: string; endTime: string }[] = [];
 
+    // Hoy la grilla arranca en la hora actual: ofrecer las 09:00 a las 19:30 no
+    // sólo ensucia la pantalla, `create()` las aceptaba. El corte es el fin del
+    // turno y no su arranque, así el mostrador todavía puede cargar al que entró
+    // a jugar recién. En días futuros no hay nada que recortar.
+    const cutoff = date === today ? nowLocalTime() : null;
+
     for (const window of openWindows) {
       let slotStart = window.start;
       while (true) {
         const slotEnd = addMinutesToTime(slotStart, slotDuration);
         if (slotEnd > window.end) break;
 
+        const isOver = cutoff !== null && slotEnd <= cutoff;
         const isBlocked = blockedRanges.some(
           (b) => slotStart < b.end && slotEnd > b.start,
         );
@@ -598,7 +606,7 @@ export class BookingsService {
             slotEnd > normalizeTime(bk.startTime),
         );
 
-        if (!isBlocked && !isBooked) {
+        if (!isOver && !isBlocked && !isBooked) {
           availableSlots.push({ startTime: slotStart, endTime: slotEnd });
         }
         slotStart = slotEnd;
@@ -751,6 +759,14 @@ export class BookingsService {
     startTime: string,
     endTime: string,
   ): Promise<void> {
+    // Un turno ya jugado no está disponible para nadie. Va acá y no sólo en
+    // `create()` para que el generador de turnos fijos lo vea por el mismo
+    // camino y saltee la fecha en vez de materializar una instancia pasada.
+    const today = todayLocalISO();
+    if (date < today || (date === today && endTime <= nowLocalTime())) {
+      throw new BadRequestException('Ese turno ya pasó');
+    }
+
     const dayOfWeek = new Date(date + 'T12:00:00').getDay();
 
     const exceptions = await this.getApplicableExceptions(
@@ -916,10 +932,16 @@ export class BookingsService {
     }
   }
 
-  private validateNotInPast(date: string): void {
+  // No alcanza con comparar la fecha: sin mirar la hora se podía reservar un
+  // turno de hoy que ya se jugó. Se rechaza recién cuando el turno terminó, para
+  // no bloquear la carga del que está jugando en este momento.
+  private validateNotInPast(date: string, endTime: string): void {
     const today = todayLocalISO();
     if (date < today) {
-      throw new BadRequestException('Cannot book a date in the past');
+      throw new BadRequestException('No se puede reservar una fecha pasada');
+    }
+    if (date === today && endTime <= nowLocalTime()) {
+      throw new BadRequestException('Ese turno ya pasó');
     }
   }
 

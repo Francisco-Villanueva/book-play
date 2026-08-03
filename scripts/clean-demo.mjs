@@ -59,6 +59,20 @@ const main = async () => {
       `DELETE FROM bookings WHERE business_id = ANY($1::uuid[]) OR user_id = ANY($2::uuid[])`,
       [businessIds, userIds],
     );
+    // Turnos fijos y notificaciones son posteriores al seed, así que hoy no crea
+    // ninguno; van igual porque cuelgan del complejo y cualquiera que aparezca
+    // (un cliente que cancela genera una notificación) haría fallar el DELETE
+    // de businesses por FK y volvería atrás el borrado entero.
+    await run(
+      'recurring_bookings',
+      `DELETE FROM recurring_bookings WHERE business_id = ANY($1::uuid[])`,
+      [businessIds],
+    );
+    await run(
+      'notifications',
+      `DELETE FROM notifications WHERE business_id = ANY($1::uuid[])`,
+      [businessIds],
+    );
     await run(
       'court_availability',
       `DELETE FROM court_availability WHERE court_id IN (SELECT id FROM courts WHERE business_id = ANY($1::uuid[]))`,

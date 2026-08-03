@@ -97,14 +97,33 @@ export class BusinessesService {
       sports: string[];
     }[]
   > {
+    // Un complejo en solo lectura no puede recibir reservas: mostrarlo acá manda
+    // al jugador a elegir cancha y horario para que el server le rechace la
+    // confirmación al final. Se resuelve aparte y no como include porque un LEFT
+    // JOIN con condición deja pasar igual la fila del complejo bloqueado.
+    const readOnly = await this.subscriptionModel.findAll({
+      where: {
+        status: {
+          [Op.in]: [SubscriptionStatus.SUSPENDED, SubscriptionStatus.CANCELLED],
+        },
+      },
+      attributes: ['businessId'],
+    });
+    const readOnlyIds = readOnly.map((s) => s.businessId);
+
     const businesses = await this.businessModel.findAll({
-      where: q ? { name: { [Op.iLike]: `%${q}%` } } : {},
+      where: {
+        ...(q ? { name: { [Op.iLike]: `%${q}%` } } : {}),
+        ...(readOnlyIds.length ? { id: { [Op.notIn]: readOnlyIds } } : {}),
+      },
       include: [
         {
           model: Court,
           as: 'courts',
           attributes: ['id', 'sportType'],
-          required: false,
+          // INNER JOIN a propósito: sin canchas activas no hay nada que reservar.
+          where: { isActive: true },
+          required: true,
         },
       ],
       order: [['name', 'ASC']],
