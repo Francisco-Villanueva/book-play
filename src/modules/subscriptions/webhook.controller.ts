@@ -9,6 +9,7 @@ import {
   ValidationPipe,
 } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
+import { SkipThrottle } from '@nestjs/throttler';
 import { MercadoPagoWebhookDto } from './dto/mercadopago-webhook.dto';
 import { WebhookService } from './webhook.service';
 import { MercadoPagoWebhookSignatureGuard } from './guards/mercadopago-webhook-signature.guard';
@@ -19,6 +20,11 @@ export class WebhookController {
 
   @Post()
   @HttpCode(200)
+  // Sin cuota a propósito: Mercado Pago reintenta y puede mandar ráfagas, y todas
+  // llegan desde el mismo puñado de IPs suyas. Limitarlas sería descartar avisos
+  // de pago legítimos — la firma HMAC del guard de abajo ya es el control de
+  // acceso, y la idempotencia por `mp_payment_id` cubre el reintento.
+  @SkipThrottle()
   @UseGuards(MercadoPagoWebhookSignatureGuard)
   // Overrides the app-wide `forbidNonWhitelisted` pipe: Mercado Pago's webhook payload
   // has varied between API versions, and an unrecognized field must not cause every

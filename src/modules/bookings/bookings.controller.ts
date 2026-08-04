@@ -15,6 +15,8 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { PUBLIC_WRITE_THROTTLE } from '../../config/throttler.config';
 import { BookingsService } from './bookings.service';
 import { BookingPaymentsService } from './booking-payments.service';
 import { CreateBookingDto } from './dto/create-booking.dto';
@@ -41,6 +43,10 @@ export class BookingsController {
 
   @Post()
   @UseGuards(OptionalJwtAuthGuard)
+  // Es público y sin captcha: una reserva creada ocupa una cancha real y dispara
+  // un correo. Sin freno, cualquiera llena la agenda de un complejo. 10 por
+  // minuto deja pasar al mostrador cargando turnos uno atrás de otro.
+  @Throttle(PUBLIC_WRITE_THROTTLE)
   @ApiOperation({ summary: 'Create a booking (guest or authenticated user)' })
   @ApiResponse({ status: 201, description: 'Booking created' })
   @ApiResponse({ status: 409, description: 'Time slot already taken' })

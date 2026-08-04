@@ -14,6 +14,9 @@ const envZodModel = z.object({
   FRONTEND_URL: z.string().optional(),
   MAIL_LOGO_URL: z.string().optional(),
   MAIL_ENABLED: z.string().optional(),
+  APP_TIMEZONE: z.string().optional(),
+  CORS_ORIGINS: z.string().optional(),
+  SWAGGER_ENABLED: z.string().optional(),
 });
 
 envZodModel.parse(process.env);

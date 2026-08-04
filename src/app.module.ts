@@ -2,6 +2,8 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { ConfigModule } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
+import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { THROTTLER_CONFIG } from './config/throttler.config';
 import { SubscriptionAccessGuard } from './common/guards/subscription-access.guard';
 import { subscriptionProvider } from './modules/subscriptions/subscription.provider';
 import { AppController } from './app.controller';
@@ -27,6 +29,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
     DatabaseModule,
     ConfigModule.forRoot({ isGlobal: true }),
     ScheduleModule.forRoot(),
+    ThrottlerModule.forRoot(THROTTLER_CONFIG),
     AuthModule,
     UsersModule,
     BusinessesModule,
@@ -46,6 +49,9 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
   providers: [
     AppService,
     ...subscriptionProvider,
+    // Va primero: descartar por cuota es más barato que la consulta de
+    // suscripción que hace el guard de abajo.
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: SubscriptionAccessGuard },
   ],
 })

@@ -13,6 +13,8 @@ import {
   ApiResponse,
   ApiTags,
 } from '@nestjs/swagger';
+import { Throttle } from '@nestjs/throttler';
+import { AUTH_THROTTLE, EMAIL_THROTTLE } from '../../config/throttler.config';
 import { AuthService } from './auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -27,6 +29,7 @@ export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
   @Post('register')
+  @Throttle(AUTH_THROTTLE)
   @ApiOperation({ summary: 'Register a new user' })
   @ApiResponse({ status: 201, description: 'User created successfully' })
   @ApiResponse({ status: 400, description: 'Validation error' })
@@ -36,6 +39,7 @@ export class AuthController {
   }
 
   @Post('login')
+  @Throttle(AUTH_THROTTLE)
   @ApiOperation({ summary: 'Login and obtain a JWT token' })
   @ApiResponse({ status: 200, description: 'Returns access_token' })
   @ApiResponse({ status: 401, description: 'Invalid credentials' })
@@ -55,6 +59,10 @@ export class AuthController {
 
   @Post('forgot-password')
   @HttpCode(200)
+  // Cupo horario, no por minuto: el correo sale de una casilla con límite diario
+  // y este endpoint responde 200 siempre, así que sin freno se puede usar para
+  // vaciar la cuota de Google Workspace del complejo.
+  @Throttle(EMAIL_THROTTLE)
   @ApiOperation({ summary: 'Request a password reset email' })
   @ApiResponse({
     status: 200,
@@ -70,6 +78,7 @@ export class AuthController {
 
   @Post('reset-password')
   @HttpCode(200)
+  @Throttle(AUTH_THROTTLE)
   @ApiOperation({ summary: 'Reset the password using a token' })
   @ApiResponse({ status: 200, description: 'Password updated' })
   @ApiResponse({ status: 400, description: 'Invalid or expired token' })
