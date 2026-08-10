@@ -38,6 +38,11 @@ function makeSeries(over: Partial<RecurringBooking> = {}) {
   return series;
 }
 
+// Las fechas de los casos son absolutas (2026-08-04 en adelante) y el generador
+// saltea todo lo que ya pasó, así que sin congelar el reloj la suite se pone en
+// rojo sola al llegar esa semana — pasó: verde el 2026-08-03, roja el 2026-08-10.
+const FROZEN_NOW = new Date('2026-08-01T12:00:00-03:00');
+
 describe('RecurringBookingsGenerator', () => {
   let generator: RecurringBookingsGenerator;
   let create: jest.Mock;
@@ -45,6 +50,15 @@ describe('RecurringBookingsGenerator', () => {
   let transaction: jest.Mock;
   let commit: jest.Mock;
   let rollback: jest.Mock;
+
+  beforeAll(() => {
+    jest.useFakeTimers({ doNotFake: ['nextTick'] });
+    jest.setSystemTime(FROZEN_NOW);
+  });
+
+  afterAll(() => {
+    jest.useRealTimers();
+  });
 
   beforeEach(async () => {
     create = jest.fn().mockResolvedValue({ id: 'bk1' });
