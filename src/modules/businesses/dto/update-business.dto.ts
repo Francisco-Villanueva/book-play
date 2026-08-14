@@ -1,5 +1,6 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import {
+  IsBoolean,
   IsEmail,
   IsIn,
   IsInt,
@@ -7,6 +8,7 @@ import {
   IsOptional,
   IsString,
   Max,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -23,10 +25,52 @@ export class UpdateBusinessDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ example: '123 Main St, City' })
+  @ApiPropertyOptional({ example: 'Av. 44 1250' })
   @IsOptional()
   @IsString()
   address?: string;
+
+  @ApiPropertyOptional({
+    example: 'La Plata',
+    description: 'Ciudad del complejo. Es el eje de la búsqueda pública',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  city?: string;
+
+  @ApiPropertyOptional({ example: 'Buenos Aires' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  province?: string;
+
+  @ApiPropertyOptional({
+    example: -34.921,
+    description:
+      'Coordenada del complejo. La completa el geocoder; se manda a mano sólo para corregirla',
+  })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(-90)
+  @Max(90)
+  latitude?: number;
+
+  @ApiPropertyOptional({ example: -57.9545 })
+  @IsOptional()
+  @IsNumber({ maxDecimalPlaces: 6 })
+  @Min(-180)
+  @Max(180)
+  longitude?: number;
+
+  @ApiPropertyOptional({
+    example: true,
+    description:
+      'Si el complejo aparece en el buscador público. Su link directo sigue funcionando igual',
+  })
+  @IsOptional()
+  @IsBoolean()
+  isListed?: boolean;
 
   @ApiPropertyOptional({ example: '+1234567890' })
   @IsOptional()

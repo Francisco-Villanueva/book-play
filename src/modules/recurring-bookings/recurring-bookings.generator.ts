@@ -60,11 +60,7 @@ export class RecurringBookingsGenerator {
 
   // Las fechas que le tocan a la serie entre `from` y `until`, ambas inclusive.
   // No consulta la base: sirve igual para la previsualización y para generar.
-  occurrenceDates(
-    series: SeriesShape,
-    from: string,
-    until: string,
-  ): string[] {
+  occurrenceDates(series: SeriesShape, from: string, until: string): string[] {
     const limit =
       series.endDate && series.endDate < until ? series.endDate : until;
     const floor = from > series.startDate ? from : series.startDate;

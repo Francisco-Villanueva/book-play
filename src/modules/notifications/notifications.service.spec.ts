@@ -52,7 +52,13 @@ describe('NotificationsService', () => {
         NotificationsService,
         {
           provide: NOTIFICATION_REPOSITORY,
-          useValue: { create, update, findOne, findAll: jest.fn(), count: jest.fn() },
+          useValue: {
+            create,
+            update,
+            findOne,
+            findAll: jest.fn(),
+            count: jest.fn(),
+          },
         },
         { provide: BUSINESS_USER_REPOSITORY, useValue: { findAll: buFindAll } },
         { provide: MailService, useValue: { sendBookingCancelledByClient } },
@@ -101,9 +107,9 @@ describe('NotificationsService', () => {
     await notify();
 
     expect(sendBookingCancelledByClient).toHaveBeenCalledTimes(2);
-    expect(
-      sendBookingCancelledByClient.mock.calls.map((c) => c[0].to),
-    ).toEqual(['owner@x.com', 'admin@x.com']);
+    expect(sendBookingCancelledByClient.mock.calls.map((c) => c[0].to)).toEqual(
+      ['owner@x.com', 'admin@x.com'],
+    );
 
     // El STAFF queda afuera en el WHERE, no filtrando después: nunca sale de la DB.
     const { where } = buFindAll.mock.calls[0][0];

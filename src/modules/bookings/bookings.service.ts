@@ -35,11 +35,18 @@ import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
 import {
   addMinutesToTime,
+  dayOfWeekOfISODate,
   hoursUntil,
   normalizeTime,
   nowLocalTime,
   todayLocalISO,
 } from '../../common/utils/time.util';
+import { containsPattern } from '../../common/utils/like.util';
+import {
+  buildSlotGrid,
+  classifyExceptions,
+  type RuleInput,
+} from './availability.calculator';
 import { NotificationsService } from '../notifications/notifications.service';
 
 // Por qué un slot no se puede reservar. `CLOSED` cubre tanto el cierre por
@@ -288,7 +295,7 @@ export class BookingsService {
 
     const term = query.q?.trim();
     if (term) {
-      const pattern = `%${this.escapeLikePattern(term)}%`;
+      const pattern = containsPattern(term);
       where[Op.or] = [
         { guestName: { [Op.iLike]: pattern } },
         { guestPhone: { [Op.iLike]: pattern } },
@@ -300,12 +307,6 @@ export class BookingsService {
     }
 
     return where as WhereOptions;
-  }
-
-  // Sin esto, un '%' tipeado en el buscador matchea todo y un '_' matchea
-  // cualquier caracter — el usuario espera búsqueda literal, no comodines.
-  private escapeLikePattern(value: string): string {
-    return value.replace(/[\\%_]/g, (char) => `\\${char}`);
   }
 
   async findAllByUser(userId: string): Promise<Booking[]> {
@@ -386,7 +387,8 @@ export class BookingsService {
       endTime: booking.endTime,
       cancellationDeadlineHours: deadline,
       canCancel:
-        deadline <= 0 || hoursUntil(booking.date, booking.startTime) >= deadline,
+        deadline <= 0 ||
+        hoursUntil(booking.date, booking.startTime) >= deadline,
     };
   }
 
@@ -513,8 +515,14 @@ export class BookingsService {
     // pantalla pública la que, con este flag, los muestra como no disponibles.
     const acceptsBookings = await this.acceptsBookings(businessId);
 
-    const dayOfWeek = new Date(date + 'T12:00:00').getDay();
     const { slotDuration } = court;
+    const empty = {
+      date,
+      courtId,
+      slotDuration,
+      acceptsBookings,
+      availableSlots: [],
+    };
 
     // Fetch exceptions that apply to this court: global ones (no court entries)
     // and court-specific ones that explicitly include this court.
@@ -524,35 +532,19 @@ export class BookingsService {
       date,
     );
 
-    let openWindows: { start: string; end: string }[] = [];
-    const blockedRanges: { start: string; end: string }[] = [];
-    let hasEnablingException = false;
+    const plan = classifyExceptions(exceptions);
+    if (plan.closedAllDay) return empty;
 
-    for (const exc of exceptions) {
-      const exStart = exc.startTime ? normalizeTime(exc.startTime) : null;
-      const exEnd = exc.endTime ? normalizeTime(exc.endTime) : null;
-
-      if (!exc.isAvailable) {
-        if (!exStart || !exEnd) {
-          // Full-day block — entire day is closed for this court
-          return {
-            date,
-            courtId,
-            slotDuration,
-            acceptsBookings,
-            availableSlots: [],
-          };
-        }
-        blockedRanges.push({ start: exStart, end: exEnd });
-      } else if (exStart && exEnd) {
-        openWindows.push({ start: exStart, end: exEnd });
-        hasEnablingException = true;
-      }
-    }
-
-    if (!hasEnablingException) {
-      const rules = await this.availabilityRuleModel.findAll({
-        where: { businessId, dayOfWeek, isActive: true },
+    // Una excepción habilitante ya define la ventana: la consulta de reglas
+    // sobra. Por eso `classifyExceptions` va separado de `buildSlotGrid`.
+    let rules: RuleInput[] = [];
+    if (!plan.hasEnablingException) {
+      rules = await this.availabilityRuleModel.findAll({
+        where: {
+          businessId,
+          dayOfWeek: dayOfWeekOfISODate(date),
+          isActive: true,
+        },
         include: [
           {
             model: Court,
@@ -563,55 +555,26 @@ export class BookingsService {
           },
         ],
       });
-      if (rules.length === 0) {
-        return {
-          date,
-          courtId,
-          slotDuration,
-          acceptsBookings,
-          availableSlots: [],
-        };
-      }
-      openWindows = rules.map((r) => ({
-        start: normalizeTime(r.startTime),
-        end: normalizeTime(r.endTime),
-      }));
+      // La grilla ya daría vacía sin reglas (BR-009); el corte está sólo para
+      // ahorrarse la consulta de reservas.
+      if (rules.length === 0) return empty;
     }
 
     const existingBookings = await this.bookingModel.findAll({
       where: { courtId, date, status: BookingStatus.ACTIVE },
     });
 
-    const availableSlots: { startTime: string; endTime: string }[] = [];
-
     // Hoy la grilla arranca en la hora actual: ofrecer las 09:00 a las 19:30 no
     // sólo ensucia la pantalla, `create()` las aceptaba. El corte es el fin del
     // turno y no su arranque, así el mostrador todavía puede cargar al que entró
     // a jugar recién. En días futuros no hay nada que recortar.
-    const cutoff = date === today ? nowLocalTime() : null;
-
-    for (const window of openWindows) {
-      let slotStart = window.start;
-      while (true) {
-        const slotEnd = addMinutesToTime(slotStart, slotDuration);
-        if (slotEnd > window.end) break;
-
-        const isOver = cutoff !== null && slotEnd <= cutoff;
-        const isBlocked = blockedRanges.some(
-          (b) => slotStart < b.end && slotEnd > b.start,
-        );
-        const isBooked = existingBookings.some(
-          (bk) =>
-            slotStart < normalizeTime(bk.endTime) &&
-            slotEnd > normalizeTime(bk.startTime),
-        );
-
-        if (!isOver && !isBlocked && !isBooked) {
-          availableSlots.push({ startTime: slotStart, endTime: slotEnd });
-        }
-        slotStart = slotEnd;
-      }
-    }
+    const availableSlots = buildSlotGrid({
+      plan,
+      rules,
+      bookings: existingBookings,
+      slotDuration,
+      cutoff: date === today ? nowLocalTime() : null,
+    });
 
     return { date, courtId, slotDuration, acceptsBookings, availableSlots };
   }
@@ -807,9 +770,7 @@ export class BookingsService {
       const exStart = exception.startTime
         ? normalizeTime(exception.startTime)
         : null;
-      const exEnd = exception.endTime
-        ? normalizeTime(exception.endTime)
-        : null;
+      const exEnd = exception.endTime ? normalizeTime(exception.endTime) : null;
 
       if (!exception.isAvailable) {
         if (!exStart || !exEnd) {

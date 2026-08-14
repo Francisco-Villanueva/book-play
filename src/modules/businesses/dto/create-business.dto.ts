@@ -5,6 +5,7 @@ import {
   IsNumber,
   IsOptional,
   IsString,
+  MaxLength,
   Min,
   MinLength,
 } from 'class-validator';
@@ -21,10 +22,25 @@ export class CreateBusinessDto {
   @IsString()
   description?: string;
 
-  @ApiPropertyOptional({ example: '123 Main St, City' })
+  @ApiPropertyOptional({ example: 'Av. 44 1250' })
   @IsOptional()
   @IsString()
   address?: string;
+
+  @ApiPropertyOptional({
+    example: 'La Plata',
+    description: 'Ciudad del complejo. Es el eje de la búsqueda pública',
+  })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  city?: string;
+
+  @ApiPropertyOptional({ example: 'Buenos Aires' })
+  @IsOptional()
+  @IsString()
+  @MaxLength(80)
+  province?: string;
 
   @ApiPropertyOptional({ example: '+1234567890' })
   @IsOptional()

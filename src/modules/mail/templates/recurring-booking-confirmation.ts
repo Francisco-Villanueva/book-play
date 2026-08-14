@@ -36,10 +36,7 @@ export function recurringBookingConfirmationEmail(
   const subject = `Turno fijo confirmado — ${day} ${formatTime(props.startTime)}`;
 
   const dateList = props.dates
-    .map(
-      (d) =>
-        `<li style="margin:0 0 6px;">${esc(formatDateAr(d))}</li>`,
-    )
+    .map((d) => `<li style="margin:0 0 6px;">${esc(formatDateAr(d))}</li>`)
     .join('');
 
   const body =

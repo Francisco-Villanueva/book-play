@@ -17,6 +17,8 @@ import {
   loadColumns,
   resolveDatabaseUrl,
 } from './demo/db.mjs';
+import { normalizeSport } from './demo/sports.mjs';
+import { parseAddress, toSlug } from './demo/location.mjs';
 import {
   BOOKING_NOTES,
   BUSINESSES,
@@ -243,11 +245,18 @@ function buildDataset(plans) {
     const preset = SUBSCRIPTION_PRESETS[spec.subscription](now);
     const createdAt = preset.trialStartedAt;
 
+    // La ciudad se deriva del address para que el seed alimente la busqueda
+    // publica sin tener que duplicarla en el dataset.
+    const { city, province } = parseAddress(spec.address);
+
     businesses.push({
       id: businessId,
       name: spec.name,
       description: spec.description,
       address: spec.address,
+      city,
+      citySlug: city ? toSlug(city) : null,
+      province,
       phone: spec.phone,
       email: `hola@${spec.slug}.${DEMO_TAG}`,
       timezone: 'America/Argentina/Buenos_Aires',
@@ -286,7 +295,8 @@ function buildDataset(plans) {
         id: uuid(),
         businessId,
         name: courtSpec.name,
-        sportType: courtSpec.sportType,
+        // El dataset guarda el label legible; la columna, el slug canonico.
+        sportType: normalizeSport(courtSpec.sportType),
         surface: courtSpec.surface,
         capacity: courtSpec.capacity,
         isIndoor: courtSpec.isIndoor,

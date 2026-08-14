@@ -111,7 +111,10 @@ describe('UsersService', () => {
     it('should persist notifyBookings and return the new value', async () => {
       const user = {
         notifyBookings: true,
-        update: jest.fn().mockImplementation(function (this: void, values: any) {
+        update: jest.fn().mockImplementation(function (
+          this: void,
+          values: any,
+        ) {
           user.notifyBookings = values.notifyBookings;
         }),
       };

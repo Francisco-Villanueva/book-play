@@ -70,7 +70,11 @@ export class RecurringBooking extends Model {
 
   // Hasta qué fecha ya se materializaron instancias. Es lo que hace idempotente
   // al cron: sin esto habría que re-chequear toda la serie en cada corrida.
-  @Column({ type: DataType.DATEONLY, allowNull: false, field: 'generated_until' })
+  @Column({
+    type: DataType.DATEONLY,
+    allowNull: false,
+    field: 'generated_until',
+  })
   declare generatedUntil: string;
 
   @Default(RecurringBookingStatus.ACTIVE)

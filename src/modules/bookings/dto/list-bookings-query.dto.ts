@@ -69,7 +69,9 @@ export class ListBookingsQueryDto {
     description: 'true = sólo instancias de turnos fijos; false = sólo sueltas',
   })
   @IsOptional()
-  @Transform(({ value }: { value: unknown }) => value === true || value === 'true')
+  @Transform(
+    ({ value }: { value: unknown }) => value === true || value === 'true',
+  )
   @IsBoolean()
   recurring?: boolean;
 

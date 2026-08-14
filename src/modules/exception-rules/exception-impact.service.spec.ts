@@ -43,7 +43,9 @@ describe('ExceptionImpactService', () => {
         { provide: COURT_REPOSITORY, useValue: {} },
         {
           provide: BUSINESS_REPOSITORY,
-          useValue: { findByPk: jest.fn().mockResolvedValue({ name: 'Padel House' }) },
+          useValue: {
+            findByPk: jest.fn().mockResolvedValue({ name: 'Padel House' }),
+          },
         },
         { provide: MailService, useValue: { sendBookingSuspended } },
       ],
@@ -69,9 +71,21 @@ describe('ExceptionImpactService', () => {
 
     it('sólo alcanza las que se solapan con la franja bloqueada', async () => {
       findAll.mockResolvedValue([
-        makeBooking({ id: 'antes', startTime: '17:00:00', endTime: '18:00:00' }),
-        makeBooking({ id: 'dentro', startTime: '20:00:00', endTime: '21:30:00' }),
-        makeBooking({ id: 'despues', startTime: '23:00:00', endTime: '23:59:00' }),
+        makeBooking({
+          id: 'antes',
+          startTime: '17:00:00',
+          endTime: '18:00:00',
+        }),
+        makeBooking({
+          id: 'dentro',
+          startTime: '20:00:00',
+          endTime: '21:30:00',
+        }),
+        makeBooking({
+          id: 'despues',
+          startTime: '23:00:00',
+          endTime: '23:59:00',
+        }),
       ]);
 
       const affected = await service.findAffected(BUSINESS_ID, {
@@ -86,7 +100,11 @@ describe('ExceptionImpactService', () => {
 
     it('no cuenta una reserva que termina justo cuando empieza el bloqueo', async () => {
       findAll.mockResolvedValue([
-        makeBooking({ id: 'pegada', startTime: '18:00:00', endTime: '19:00:00' }),
+        makeBooking({
+          id: 'pegada',
+          startTime: '18:00:00',
+          endTime: '19:00:00',
+        }),
       ]);
 
       const affected = await service.findAffected(BUSINESS_ID, {
@@ -105,8 +123,16 @@ describe('ExceptionImpactService', () => {
     // afuera ya no es horario válido, así que también se cae.
     it('alcanza las reservas que quedan fuera de la ventana habilitada', async () => {
       findAll.mockResolvedValue([
-        makeBooking({ id: 'dentro', startTime: '10:00:00', endTime: '11:00:00' }),
-        makeBooking({ id: 'fuera', startTime: '08:00:00', endTime: '09:00:00' }),
+        makeBooking({
+          id: 'dentro',
+          startTime: '10:00:00',
+          endTime: '11:00:00',
+        }),
+        makeBooking({
+          id: 'fuera',
+          startTime: '08:00:00',
+          endTime: '09:00:00',
+        }),
       ]);
 
       const affected = await service.findAffected(BUSINESS_ID, {

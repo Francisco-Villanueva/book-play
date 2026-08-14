@@ -80,7 +80,9 @@ export class RecurringBookingsCron {
       attributes: ['businessId', 'status'],
     });
     return new Set(
-      subscriptions.filter((s) => isReadOnly(s.status)).map((s) => s.businessId),
+      subscriptions
+        .filter((s) => isReadOnly(s.status))
+        .map((s) => s.businessId),
     );
   }
 }

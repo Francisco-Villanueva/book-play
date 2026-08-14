@@ -84,7 +84,9 @@ export class UsersController {
   }
 
   @Get('me/preferences')
-  @ApiOperation({ summary: 'Get the authenticated user notification preferences' })
+  @ApiOperation({
+    summary: 'Get the authenticated user notification preferences',
+  })
   @ApiResponse({ status: 200, description: 'Preferences' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })
   async getMyPreferences(@Request() req: any) {
@@ -92,7 +94,9 @@ export class UsersController {
   }
 
   @Patch('me/preferences')
-  @ApiOperation({ summary: 'Update the authenticated user notification preferences' })
+  @ApiOperation({
+    summary: 'Update the authenticated user notification preferences',
+  })
   @ApiResponse({ status: 200, description: 'Preferences updated' })
   @ApiResponse({ status: 400, description: 'No fields provided' })
   @ApiResponse({ status: 401, description: 'Unauthorized' })

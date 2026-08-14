@@ -11,7 +11,7 @@ import {
 import { Court } from './entities/court.model';
 import { Business } from '../businesses/entities/business.model';
 import { Booking } from '../bookings/entities/booking.model';
-import { BookingStatus } from '../../common/enums';
+import { BookingStatus, normalizeSport } from '../../common/enums';
 import { CreateCourtDto } from './dto/create-court.dto';
 import { UpdateCourtDto } from './dto/update-court.dto';
 
@@ -33,6 +33,9 @@ export class CourtsService {
     return this.courtModel.create({
       ...dto,
       businessId,
+      // Se guarda normalizado para que el filtro por deporte de la búsqueda
+      // pública pueda comparar por igualdad. El label lo arma el front.
+      sportType: normalizeSport(dto.sportType),
       slotDuration: dto.slotDuration ?? business.defaultSlotDuration,
       pricePerSlot: dto.pricePerSlot ?? business.defaultPricePerSlot,
     });
@@ -60,7 +63,12 @@ export class CourtsService {
     dto: UpdateCourtDto,
   ): Promise<Court> {
     const court = await this.findOne(id, businessId);
-    await court.update(dto);
+    await court.update({
+      ...dto,
+      ...(dto.sportType !== undefined
+        ? { sportType: normalizeSport(dto.sportType) }
+        : {}),
+    });
     return court;
   }
 

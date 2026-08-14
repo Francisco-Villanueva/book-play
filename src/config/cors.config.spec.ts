@@ -22,7 +22,9 @@ describe('CORS', () => {
 
   it('acepta los previews de Vercel de los proyectos propios', () => {
     expect(
-      allows('https://book-play-front-e1w4mhfr1-franciscovillanuevas-projects.vercel.app'),
+      allows(
+        'https://book-play-front-e1w4mhfr1-franciscovillanuevas-projects.vercel.app',
+      ),
     ).toBe(true);
   });
 

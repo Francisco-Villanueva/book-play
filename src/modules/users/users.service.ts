@@ -108,7 +108,9 @@ export class UsersService {
     dto: UpdatePreferencesDto,
   ): Promise<{ notifyBookings: boolean }> {
     if (dto.notifyBookings === undefined) {
-      throw new BadRequestException('No enviaste ninguna preferencia para actualizar');
+      throw new BadRequestException(
+        'No enviaste ninguna preferencia para actualizar',
+      );
     }
 
     const user = await this.findById(id);

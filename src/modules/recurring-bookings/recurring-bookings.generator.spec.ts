@@ -14,10 +14,12 @@ function makeCourt(slotDuration = 90, pricePerSlot = 48000) {
 }
 
 function makeSeries(over: Partial<RecurringBooking> = {}) {
-  const update = jest.fn().mockImplementation((fields: Record<string, string>) => {
-    Object.assign(series, fields);
-    return Promise.resolve();
-  });
+  const update = jest
+    .fn()
+    .mockImplementation((fields: Record<string, string>) => {
+      Object.assign(series, fields);
+      return Promise.resolve();
+    });
   const series = {
     id: 's1',
     businessId: BUSINESS_ID,

@@ -60,14 +60,23 @@ describe('BookingsService — plazo de cancelación (BR-019)', () => {
         BookingsService,
         { provide: BOOKING_REPOSITORY, useValue: { findOne: bookingFindOne } },
         { provide: COURT_REPOSITORY, useValue: {} },
-        { provide: BUSINESS_REPOSITORY, useValue: { findByPk: businessFindByPk } },
+        {
+          provide: BUSINESS_REPOSITORY,
+          useValue: { findByPk: businessFindByPk },
+        },
         { provide: AVAILABILITY_RULE_REPOSITORY, useValue: {} },
         { provide: EXCEPTION_RULE_REPOSITORY, useValue: {} },
         { provide: SUBSCRIPTION_REPOSITORY, useValue: {} },
         { provide: 'SEQUELIZE', useValue: {} },
         { provide: UsersService, useValue: { findById: jest.fn() } },
-        { provide: MailService, useValue: { sendBookingCancellation: jest.fn() } },
-        { provide: NotificationsService, useValue: { notifyClientCancellation } },
+        {
+          provide: MailService,
+          useValue: { sendBookingCancellation: jest.fn() },
+        },
+        {
+          provide: NotificationsService,
+          useValue: { notifyClientCancellation },
+        },
       ],
     }).compile();
 
@@ -151,7 +160,9 @@ describe('BookingsService — plazo de cancelación (BR-019)', () => {
   });
 
   it('marca la baja de una fecha de turno fijo como tal', async () => {
-    bookingFindOne.mockResolvedValue(bookingIn(48, { recurringBookingId: 's1' }));
+    bookingFindOne.mockResolvedValue(
+      bookingIn(48, { recurringBookingId: 's1' }),
+    );
     setDeadline(24);
 
     await service.cancelForUser('bk1', USER_ID);

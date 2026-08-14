@@ -7,3 +7,5 @@ export { NotificationType } from './notification-type.enum';
 export { SubscriptionStatus } from './subscription-status.enum';
 export { FeatureEnabledBy } from './feature-enabled-by.enum';
 export { PaymentStatus } from './payment-status.enum';
+export { SPORTS, normalizeSport } from './sport.enum';
+export type { Sport } from './sport.enum';

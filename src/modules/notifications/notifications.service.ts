@@ -72,8 +72,7 @@ export class NotificationsService {
     isRecurringInstance: boolean;
   }): Promise<void> {
     const { booking, business, courtName, isRecurringInstance } = params;
-    const clientName =
-      booking.user?.name ?? booking.guestName ?? 'Un jugador';
+    const clientName = booking.user?.name ?? booking.guestName ?? 'Un jugador';
     const time = normalizeTime(booking.startTime);
 
     const title = isRecurringInstance

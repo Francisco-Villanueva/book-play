@@ -83,14 +83,24 @@ export function normalizeTime(time: string): string {
 }
 
 // El "hoy" del complejo, no el del proceso ni el de UTC.
-export function todayLocalISO(now: Date = new Date()): string {
-  const { year, month, day } = wallClockIn(now, APP_TIMEZONE);
+//
+// `timeZone` sirve para la búsqueda pública, que en un mismo request abarca
+// muchos complejos: aplicarles a todos un único "hoy" le ofrecería turnos de
+// ayer al que ya cambió de día. El resto del dominio usa el default.
+export function todayLocalISO(
+  now: Date = new Date(),
+  timeZone: string = APP_TIMEZONE,
+): string {
+  const { year, month, day } = wallClockIn(now, timeZone);
   return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
 }
 
 // La hora del complejo en el formato del dominio ('HH:mm').
-export function nowLocalTime(now: Date = new Date()): string {
-  const { hour, minute } = wallClockIn(now, APP_TIMEZONE);
+export function nowLocalTime(
+  now: Date = new Date(),
+  timeZone: string = APP_TIMEZONE,
+): string {
+  const { hour, minute } = wallClockIn(now, timeZone);
   return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
 }
 

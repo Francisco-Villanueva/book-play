@@ -13,7 +13,10 @@ describe('ProxyAwareThrottlerGuard', () => {
 
   it('agrupa por la IP real del cliente que informa Cloudflare', async () => {
     await expect(
-      guard.track({ headers: { 'cf-connecting-ip': '190.1.2.3' }, ip: '10.0.0.9' }),
+      guard.track({
+        headers: { 'cf-connecting-ip': '190.1.2.3' },
+        ip: '10.0.0.9',
+      }),
     ).resolves.toBe('190.1.2.3');
   });
 
@@ -42,8 +45,12 @@ describe('ProxyAwareThrottlerGuard', () => {
   });
 
   it('clientes distintos no comparten contador', async () => {
-    const a = await guard.track({ headers: { 'cf-connecting-ip': '190.1.2.3' } });
-    const b = await guard.track({ headers: { 'cf-connecting-ip': '190.1.2.4' } });
+    const a = await guard.track({
+      headers: { 'cf-connecting-ip': '190.1.2.3' },
+    });
+    const b = await guard.track({
+      headers: { 'cf-connecting-ip': '190.1.2.4' },
+    });
 
     expect(a).not.toBe(b);
   });

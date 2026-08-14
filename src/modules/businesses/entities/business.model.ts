@@ -32,6 +32,32 @@ export class Business extends Model {
   declare address: string;
 
   @Column(DataType.STRING)
+  declare city: string;
+
+  // Derivada de `city` en el service, nunca la manda el cliente. Es la clave
+  // exacta con la que filtra la búsqueda pública: `city` es lo que se muestra.
+  @Column({ type: DataType.STRING, field: 'city_slug' })
+  declare citySlug: string;
+
+  @Column(DataType.STRING)
+  declare province: string;
+
+  // Las pone el geocoder a partir de la dirección, y el dueño las corrige a mano.
+  // Sin ellas el complejo igual aparece por ciudad: sólo queda fuera del orden
+  // por cercanía.
+  @Column(DataType.DECIMAL(9, 6))
+  declare latitude: number;
+
+  @Column(DataType.DECIMAL(9, 6))
+  declare longitude: number;
+
+  // Permite al complejo salir del directorio público sin dar de baja la cuenta.
+  // Sigue recibiendo reservas por su link directo.
+  @Default(true)
+  @Column({ type: DataType.BOOLEAN, allowNull: false, field: 'is_listed' })
+  declare isListed: boolean;
+
+  @Column(DataType.STRING)
   declare phone: string;
 
   @Column(DataType.STRING)

@@ -24,6 +24,7 @@ import { MasterModule } from './modules/master/master.module';
 import { MercadoPagoModule } from './modules/mercadopago/mercadopago.module';
 import { PlansModule } from './modules/plans/plans.module';
 import { SubscriptionsModule } from './modules/subscriptions/subscriptions.module';
+import { DiscoveryModule } from './modules/discovery/discovery.module';
 
 @Module({
   imports: [
@@ -45,6 +46,7 @@ import { SubscriptionsModule } from './modules/subscriptions/subscriptions.modul
     MercadoPagoModule,
     PlansModule,
     SubscriptionsModule,
+    DiscoveryModule,
   ],
   controllers: [AppController],
   providers: [

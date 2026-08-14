@@ -102,7 +102,9 @@ export class RecurringBookingsService {
 
     this.validateDates(dto);
     if (!dto.guestName?.trim()) {
-      throw new BadRequestException('El turno fijo necesita el nombre del cliente');
+      throw new BadRequestException(
+        'El turno fijo necesita el nombre del cliente',
+      );
     }
     if (!dto.guestPhone && !dto.guestEmail) {
       throw new BadRequestException(
@@ -350,7 +352,10 @@ export class RecurringBookingsService {
 
     const business = await this.businessModel.findByPk(businessId);
     const deadline = business?.cancellationDeadlineHours ?? 0;
-    if (deadline > 0 && hoursUntil(booking.date, booking.startTime) < deadline) {
+    if (
+      deadline > 0 &&
+      hoursUntil(booking.date, booking.startTime) < deadline
+    ) {
       throw new BadRequestException(
         `Este complejo permite dar de baja una fecha hasta ${deadline} ${deadline === 1 ? 'hora' : 'horas'} antes. Comunicate con el complejo.`,
       );
@@ -401,7 +406,8 @@ export class RecurringBookingsService {
     const court = await this.courtModel.findOne({
       where: { id: courtId, businessId },
     });
-    if (!court) throw new NotFoundException('La cancha no existe en este complejo');
+    if (!court)
+      throw new NotFoundException('La cancha no existe en este complejo');
     return court;
   }
 

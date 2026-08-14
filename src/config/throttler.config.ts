@@ -23,3 +23,8 @@ export const EMAIL_THROTTLE = { default: { ttl: 3_600_000, limit: 5 } };
 // público y sin captcha. 10 por minuto deja trabajar al mostrador cargando
 // turnos uno atrás del otro.
 export const PUBLIC_WRITE_THROTTLE = { default: { ttl: 60_000, limit: 10 } };
+
+// La lectura pública más cara de la casa: cuatro consultas y una grilla sobre
+// cientos de canchas. 30 por minuto le alcanza al buscador con debounce y le
+// corta las piernas al que quiera bajarse la agenda de la ciudad entera.
+export const PUBLIC_DISCOVERY_THROTTLE = { default: { ttl: 60_000, limit: 30 } };

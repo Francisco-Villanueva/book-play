@@ -32,6 +32,8 @@ import { BusinessFeature } from '../subscriptions/entities/business-feature.mode
 import { TRIAL_FEATURE_KEYS } from '../subscriptions/constants/trial-features.constant';
 import { UsersService } from '../users/users.service';
 import { MailService } from '../mail/mail.service';
+import { BusinessLocationService } from './business-location.service';
+import { containsPattern } from '../../common/utils/like.util';
 
 const TRIAL_DURATION_DAYS = 30;
 
@@ -50,6 +52,7 @@ export class BusinessesService {
     private readonly sequelize: Sequelize,
     private readonly usersService: UsersService,
     private readonly mailService: MailService,
+    private readonly locationService: BusinessLocationService,
   ) {}
 
   async findAllBusinesses(userId: string): Promise<Business[]> {
@@ -72,18 +75,21 @@ export class BusinessesService {
     id: string;
     name: string;
     address: string | null;
+    city: string | null;
+    province: string | null;
     description: string | null;
   } | null> {
     const business = await this.businessModel.findByPk(businessId, {
-      attributes: ['id', 'name', 'address', 'description'],
+      attributes: ['id', 'name', 'address', 'city', 'province', 'description'],
     });
     if (!business) return null;
-    const raw = business.toJSON();
     return {
-      id: raw.id,
-      name: raw.name,
-      address: raw.address ?? null,
-      description: raw.description ?? null,
+      id: business.id,
+      name: business.name,
+      address: business.address ?? null,
+      city: business.city ?? null,
+      province: business.province ?? null,
+      description: business.description ?? null,
     };
   }
 
@@ -113,7 +119,7 @@ export class BusinessesService {
 
     const businesses = await this.businessModel.findAll({
       where: {
-        ...(q ? { name: { [Op.iLike]: `%${q}%` } } : {}),
+        ...(q ? { name: { [Op.iLike]: containsPattern(q) } } : {}),
         ...(readOnlyIds.length ? { id: { [Op.notIn]: readOnlyIds } } : {}),
       },
       include: [
@@ -158,7 +164,7 @@ export class BusinessesService {
 
     try {
       const business = await this.businessModel.create(
-        { ...dto },
+        { ...dto, ...this.locationService.buildSlug(dto.city) },
         { transaction },
       );
 
@@ -197,6 +203,8 @@ export class BusinessesService {
 
       await transaction.commit();
 
+      void this.locationService.refresh(business.id);
+
       const owner = await this.usersService.findById(userId);
       if (owner) {
         void this.mailService.sendWelcomeOwner({
@@ -228,7 +236,15 @@ export class BusinessesService {
     const business = await this.businessModel.findByPk(businessId);
     if (!business) throw new NotFoundException('Business not found');
 
-    await business.update(dto);
+    await business.update({
+      ...dto,
+      ...this.locationService.buildSlug(dto.city),
+    });
+
+    if (this.locationService.shouldGeocode({ ...dto })) {
+      void this.locationService.refresh(business.id);
+    }
+
     return business;
   }
 
