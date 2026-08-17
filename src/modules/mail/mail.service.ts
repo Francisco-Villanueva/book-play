@@ -43,7 +43,7 @@ export class MailService {
     this.replyTo = this.configService.get<string>('mail.replyTo');
     this.frontendUrl =
       this.configService.get<string>('mail.frontendUrl') ??
-      'http://localhost:5173';
+      'https://platform.book-and-play.com.ar';
     this.logoUrl = this.configService.get<string>('mail.logoUrl');
     this.enabled = this.configService.get<boolean>('mail.enabled') ?? true;
     this.transporter = host

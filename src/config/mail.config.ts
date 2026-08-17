@@ -10,7 +10,9 @@ export default registerAs('mail', () => ({
   from: process.env.MAIL_FROM || 'Book & Play <no-reply@bookandplay.app>',
   replyTo: process.env.MAIL_REPLY_TO,
   // Base pública del SPA para armar links (reset, aceptar invitación, ver reserva).
-  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:5173',
+  // El default es producción a propósito: si falta la env var, un correo con links
+  // a localhost es inservible para el cliente y el error pasa inadvertido.
+  frontendUrl: process.env.FRONTEND_URL || 'https://platform.book-and-play.com.ar',
   logoUrl: process.env.MAIL_LOGO_URL,
   // Cuando es false (dev/test) los correos se loguean pero no se envían.
   enabled: process.env.MAIL_ENABLED !== 'false',
