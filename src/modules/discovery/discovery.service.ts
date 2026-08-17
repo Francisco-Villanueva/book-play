@@ -55,8 +55,10 @@ export class DiscoveryService {
     query: DiscoverQueryDto,
   ): Promise<DiscoveryComplejosResult> {
     const { from, days, dates } = this.resolveWindow(query.date, query.days);
+    // Sin ciudad la home muestra todo el país: es la primera pantalla de alguien
+    // que todavía no eligió dónde jugar.
     const businesses = await this.repository.findBusinesses({
-      citySlug: toSlug(query.city),
+      citySlug: query.city ? toSlug(query.city) : undefined,
       q: query.q,
       sport: query.sport,
     });
@@ -84,7 +86,7 @@ export class DiscoveryService {
     const start = (page - 1) * limit;
 
     return {
-      city: query.city,
+      city: query.city ?? null,
       from,
       days,
       complejos: complejos.slice(start, start + limit),
@@ -95,7 +97,7 @@ export class DiscoveryService {
   async listSlots(query: DiscoverSlotsQueryDto): Promise<DiscoverySlotsResult> {
     const { from, days, dates } = this.resolveWindow(query.date, query.days);
     const businesses = await this.repository.findBusinesses({
-      citySlug: toSlug(query.city),
+      citySlug: query.city ? toSlug(query.city) : undefined,
       sport: query.sport,
     });
     const index = await this.repository.findAvailability(businesses, dates);
@@ -116,6 +118,7 @@ export class DiscoveryService {
           businessId: business.id,
           businessName: business.name,
           address: business.address ?? null,
+          businessCity: business.city ?? null,
           courtId: court.id,
           courtName: court.name,
           sportType: court.sportType,
@@ -139,7 +142,7 @@ export class DiscoveryService {
     );
 
     return {
-      city: query.city,
+      city: query.city ?? null,
       from,
       days,
       slots: collected.slice(0, limit),

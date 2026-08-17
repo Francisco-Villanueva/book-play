@@ -411,6 +411,75 @@ describe('DiscoveryService', () => {
     });
   });
 
+  // La home arranca sin ciudad elegida: el jugador que entra por primera vez
+  // tiene que ver qué hay antes de que le pidan decidir dónde.
+  describe('búsqueda sin ciudad', () => {
+    it('trae complejos de todas las ciudades', async () => {
+      await setup({
+        businesses: [
+          business('b1', 'Uno', [{ id: 'c1' }]),
+          business('b2', 'Dos', [{ id: 'c2' }], {
+            city: 'Rosario',
+            citySlug: 'rosario',
+          }),
+        ],
+      });
+      const result = await service.listComplejos({} as never);
+
+      expect(new Set(result.complejos.map((c) => c.name))).toEqual(
+        new Set(['Uno', 'Dos']),
+      );
+      expect(result.city).toBeNull();
+    });
+
+    // Sin ciudad el filtro no puede irse al `where`: pediría citySlug = undefined
+    // y no volvería nada.
+    it('no restringe la consulta por citySlug', async () => {
+      await setup({ businesses: [] });
+      await service.listComplejos({} as never);
+
+      const [options] = businessModel.findAll.mock.calls[0] as [
+        { where: Record<string, unknown> },
+      ];
+      expect(options.where['citySlug']).not.toBeUndefined();
+      expect(typeof options.where['citySlug']).not.toBe('string');
+    });
+
+    it('el rail también abarca todo el país', async () => {
+      await setup({
+        businesses: [
+          business('b1', 'Uno', [{ id: 'c1' }]),
+          business('b2', 'Dos', [{ id: 'c2' }], { citySlug: 'rosario' }),
+        ],
+        rules: [rule('b1', ['c1'], 5), rule('b2', ['c2'], 5)],
+      });
+      const result = await service.listSlots({
+        date: TOMORROW,
+        days: 1,
+        limit: 4,
+      } as never);
+
+      expect(new Set(result.slots.map((s) => s.businessName))).toEqual(
+        new Set(['Uno', 'Dos']),
+      );
+      expect(result.city).toBeNull();
+    });
+
+    it('sigue filtrando por deporte sin ciudad', async () => {
+      await setup({
+        businesses: [
+          business('b1', 'Padelera', [{ id: 'c1', sportType: 'padel' }]),
+          business('b2', 'Tenis Club', [{ id: 'c2', sportType: 'tenis' }], {
+            citySlug: 'rosario',
+          }),
+        ],
+      });
+      const result = await service.listComplejos({ sport: 'padel' } as never);
+
+      expect(result.complejos.map((c) => c.name)).toEqual(['Padelera']);
+    });
+  });
+
   describe('listCities', () => {
     it('agrupa por slug y cuenta complejos', async () => {
       await setup({

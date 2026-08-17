@@ -21,12 +21,16 @@ const trim = ({ value }: { value: unknown }): unknown =>
   typeof value === 'string' ? value.trim() : value;
 
 export class DiscoverSlotsQueryDto {
-  @ApiPropertyOptional({ example: 'la-plata' })
+  @ApiPropertyOptional({
+    example: 'la-plata',
+    description: 'Sin esto el rail trae los próximos turnos de todo el país',
+  })
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(80)
   @Transform(trim)
-  city: string;
+  city?: string;
 
   @ApiPropertyOptional({ example: 'padel' })
   @IsOptional()

@@ -37,7 +37,8 @@ export interface DiscoveryComplejo {
 }
 
 export interface DiscoveryComplejosResult {
-  city: string;
+  // null = la búsqueda abarcó todo el país.
+  city: string | null;
   from: string;
   days: number;
   complejos: DiscoveryComplejo[];
@@ -51,6 +52,7 @@ export interface DiscoverySlot {
   businessId: string;
   businessName: string;
   address: string | null;
+  businessCity: string | null;
   courtId: string;
   courtName: string;
   sportType: string | null;
@@ -61,7 +63,8 @@ export interface DiscoverySlot {
 }
 
 export interface DiscoverySlotsResult {
-  city: string;
+  // null = la búsqueda abarcó todo el país.
+  city: string | null;
   from: string;
   days: number;
   slots: DiscoverySlot[];

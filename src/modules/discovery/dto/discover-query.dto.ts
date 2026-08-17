@@ -28,13 +28,15 @@ export type DiscoverySort = (typeof DISCOVERY_SORTS)[number];
 export class DiscoverQueryDto {
   @ApiPropertyOptional({
     example: 'la-plata',
-    description: 'Slug de la ciudad (de GET /discovery/cities)',
+    description:
+      'Slug de la ciudad (de GET /discovery/cities). Sin esto devuelve todo el país',
   })
+  @IsOptional()
   @IsString()
   @IsNotEmpty()
   @MaxLength(80)
   @Transform(trim)
-  city: string;
+  city?: string;
 
   @ApiPropertyOptional({
     example: 'padel',
